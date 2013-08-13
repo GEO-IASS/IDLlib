@@ -20,7 +20,7 @@ pro dist_ellipse,im,n,xc,yc,ratio,pos_ang, DOUBLE = double
 ;       XC,YC - Scalars giving the position of the ellipse center.   This does
 ;               not necessarily have to be within the image
 ;       RATIO - Scalar giving the ratio of the major to minor axis.   This 
-;               should be greater than 1 for postion angle to have its 
+;               should be greater than 1 for position angle to have its 
 ;               standard meaning.
 ;
 ; OPTIONAL INPUTS:

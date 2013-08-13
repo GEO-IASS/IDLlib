@@ -5,15 +5,20 @@ pro dbcreate,name,newindex,newdb,maxitems,EXTERNAL=EXTERNAL, Maxentry=maxentry
 ; PURPOSE:      
 ;       Create a new data base (.dbf), index (.dbx) or description (.dbh) file
 ; EXPLANATION:
-;       A database definition (.dbd) file must already exist.
-;       The default directory must be a ZDBASE: directory.
+;       A database definition (.dbd) file must already exist in the current
+;       directory or in a ZDBASE directory.    The new .dbf, .dbx and/or .dbh
+;       files will be written to the same directory.   So if the .dbd file is 
+;       in a ZDBASE directory, then the user must have write privilege to that 
+;       directory
 ;
+;       This version allows record length to be larger than 32767 bytes
 ; CALLING SEQUENCE:     
 ;       dbcreate, name,[ newindex, newdb, maxitems]  [,/EXTERNAL, MAXENTRY=]  
 ;
 ; INPUTS:       
 ;       name- name of the data base (with no qualifier), scalar string. 
 ;               The description will be read from the file "NAME".dbd 
+;               Maximum length of name is 19 characters.
 ;
 ; OPTIONAL INPUTS:      
 ;       newindex - if non-zero then a new index file is created,
@@ -53,7 +58,7 @@ pro dbcreate,name,newindex,newdb,maxitems,EXTERNAL=EXTERNAL, Maxentry=maxentry
 ;               keyword can be used to supercede the  #maxentries line in the 
 ;               .dbd file (the larger of the two numbers will be used).
 ; PROCEDURE CALLS:      
-;       GETTOK(), FIND_WITH_DEF(), HOST_TO_IEEE, ZPARCHECK
+;       GETTOK(), FIND_WITH_DEF(), ZPARCHECK
 ;
 ; RESTRICTIONS: 
 ;       If newdb=0 is not specified, the changes to the .dbd file can
@@ -69,6 +74,7 @@ pro dbcreate,name,newindex,newdb,maxitems,EXTERNAL=EXTERNAL, Maxentry=maxentry
 ;                       data bases
 ;
 ;       !priv must be 2 or greater to execute this routine.
+;
 ;
 ; SIDE EFFECTS:  
 ;       data base description file ZDBASE:name.dbh is created
@@ -88,6 +94,15 @@ pro dbcreate,name,newindex,newdb,maxitems,EXTERNAL=EXTERNAL, Maxentry=maxentry
 ;       Make sure to use lowercase filenames on Unix W. Landsman May 2006
 ;       Added MAXENTRY keyword   W. Landsman July 2006
 ;       Assume since V5.5, remove obsolete keywords to OPEN W. Landsman Sep2006
+;       No longer required to be a ZDBASE directory  W. Landsman Feb 2008
+;       Fix Feb 2008 bug when files are in current dir W. L.  May 2008
+;       Fix May 2008 bug when files are not in current dir (sigh) W. L. May 2008
+;       Warn if database length exceeds 32767 bytes  W.L. Dec 2009
+;       Remove spurious warning that database name is too long W.L. April 2010
+;       Support entry lengths larger than 32767 bytes W.L. Oct. 2010
+;       Better testing for valid print formats W.L. Nov 2010
+;       Fix problem where descriptions of different items could overlap
+;            E.Shaya/W.L.  Oct. 2012
 ;-
 ;----------------------------------------------------------
  On_error,2                         ;Return to caller
@@ -111,19 +126,36 @@ zparcheck, 'DBCREATE', name, 1, 7, 0, 'Database Name'
 if N_params() LT 2 then newindex = 0
 if N_params() LT 3 then newdb = 0
 if N_params() LT 4 then maxitems = 200
-if not keyword_set(maxentry) then maxentry = 1
+if ~keyword_set(maxentry) then maxentry = 1
 filename = strlowcase(strtrim(name,2))
+if strlen(filename) GT 19 then message,/INF, $
+   'Warning - database name must not exceed 19 characters'
 
  dbclose                         ;Close any databases already open
+ ;
+; open .dbd file
+;
+get_lun, unit                   ;get free unit number
+dbdname =  find_with_def(filename+'.dbd', 'ZDBASE')
+fdecomp,dbdname,disk,dir
+zdir = disk+ dir 
+if zdir EQ '' then cd,current=zdir
+zdir = zdir + path_sep()
+if ~file_test(zdir,/write) then message, $
+   'ERROR - must have write privileges to directory ' + zdir
+openr, unit, dbdname,error=err
+if err NE 0 then goto, Bad_IO
+On_ioerror, BAD_IO              ;On I/O errors go to BAD_IO
+
 ;
 ; Decide whether or not external data representation should be used.
 ;   8/14/95  JKF/ACC - allow EXTERNAL data for newindex OR newdb modes.
 ;
-if ((newindex ne 0) or (newdb ne 0)) or $
-                ((file_search(filename+'.dbh'))[0] eq '') then begin
+if ((newindex ne 0) || (newdb ne 0)) || $
+                (~file_test(zdir+ filename+'.dbh')) then begin
         extern = keyword_set(external)
 end else begin
-        openr,tempunit,filename+'.dbh',/get_lun
+        openr,tempunit,zdir +filename+'.dbh',/get_lun
         point_lun,tempunit,119
         extern = 0b
         readu,tempunit,extern
@@ -133,11 +165,11 @@ endelse
 ; set up data buffers
 ;
 names = strarr(maxitems)                        ;names of items
-numvals = intarr(maxitems)+1S                   ;number of values
+numvals = replicate(1L,maxitems)                   ;number of values
 type = intarr(maxitems)                         ;data type
 nbytes = intarr(maxitems)                       ;number of bytes in item
 desc = strarr(maxitems)                         ;descriptions of items
-sbyte = intarr(maxitems)                        ;starting byte position
+sbyte = lonarr(maxitems)                        ;starting byte position
 format = strarr(maxitems)                       ;print formats
 headers = strarr(3,maxitems)                    ;print headers
 headers[*,*]='               '                  ;init headers
@@ -158,21 +190,13 @@ format[0] = 'I8'
 headers[1,0] = 'ENTRY'
 nitems = 1S             ;Short integer
 nextbyte = 4            ;next byte position in record
-;
-; open .dbd file
-;
-get_lun, unit                   ;get free unit number
-dbdname =  find_with_def(filename+'.dbd', 'ZDBASE')
-openr, unit, dbdname,error=err
-if err NE 0 then goto, Bad_IO
-On_ioerror, BAD_IO              ;On I/O errors go to BAD_IO
 
 ;
 ; read and process input data
 ;
 block='TITLE'                           ;assume first block is title
 inputst=''
-while not eof(unit) do begin            ;loop on records in the file
+while ~eof(unit) do begin            ;loop on records in the file
 ;
 ; process next line of input
 ;
@@ -214,7 +238,7 @@ while not eof(unit) do begin            ;loop on records in the file
                 data_type=strmid(strupcase(gettok(item_type,'*')),0,1)
                 num_bytes=item_type
                 if num_bytes eq '' then num_bytes='4'
-                if (data_type eq 'R') or (data_type eq 'I') or $
+                if (data_type eq 'R') || (data_type eq 'I') || $
                    (data_type eq 'U') then $
                                 data_type=data_type+num_bytes
                 case data_type of
@@ -242,7 +266,7 @@ while not eof(unit) do begin            ;loop on records in the file
                 nbytes[nitems]=nb               ;number of bytes for item
                 sbyte[nitems]=nextbyte          ;position in record for item
                 nextbyte=nextbyte+nb*numvals[nitems] ;next byte position
-                nitems=nitems+1
+                nitems++
                 end
 
         'FORMATS': begin
@@ -264,7 +288,7 @@ while not eof(unit) do begin            ;loop on records in the file
                                         headers[2,item_no]=strtrim(st)
                                 endif
                         endif
-                        item_no=item_no+1
+                        item_no++
                 endwhile
                 end
 
@@ -278,7 +302,7 @@ while not eof(unit) do begin            ;loop on records in the file
                 while item_no lt nitems do begin
                         if strtrim(names[item_no]) eq item_name then $
                                 pointers[item_no]=strupcase(strtrim(st, 1))
-                        item_no=item_no+1
+                        item_no++
                 endwhile
                 endcase
 
@@ -301,17 +325,18 @@ while not eof(unit) do begin            ;loop on records in the file
                                 else    : message,'Invalid index type',/IOERROR
                             endcase
                         endif
-                        item_no=item_no+1
+                        item_no++
                 endwhile
                 end
         else : begin
-                print,'DBCREATE-- invalid block specfication of ',block
+                print,'DBCREATE-- invalid block specification of ',block
                 print,'   Valid values are #TITLE, #ITEMS, #FORMATS, #INDEX,'
                 print,'   #MAXENTRIES or #POINTERS'
                end
         endcase
 next:
 endwhile; loop on records
+
 ;
 ; create data base descriptor record --------------------------------------
 ;
@@ -321,8 +346,8 @@ endwhile; loop on records
 ;         0-18   data base name character*19
 ;         19-79  data base title character*61
 ;         80-81  number of items (integer*2)
-;         82-83  record length of DBF file (integer*2)
-;         84-118 values filled in by DBOPEN
+;         105-108  record length of DBF file (integer*4)
+;         84-117 values filled in by DBOPEN
 ;         119    equals 1 if keyword EXTERNAL is true.
 ;
 totbytes=((nextbyte+3)/4*4)  ;make record length a multiple of 4
@@ -331,16 +356,16 @@ drec[0:79]=32b                      ;blanks
 drec[0] = byte(strupcase(filename))
 drec[19] = byte(title)
 drec[80] = byte(fix(nitems),0,2)
-drec[82] = byte(fix(totbytes),0,2)
+drec[105] = byte(long(totbytes),0,4)
+drec[118] = 1b
 drec[119] = byte(extern)
 ;
 ; create item description records
 ;
-;  irec(*,i) contains decription of item number i with following
+;  irec[*,i] contains description of item number i with following
 ;  byte assignments:
 ;       0-19    item name (character*20)
 ;       20-21   IDL data type (integet*2)
-;       22-23   Number of values for item (1 for scalar) (integer*2)
 ;       24-25   Starting byte position i record (integer*2)
 ;       26-27   Number of bytes per data value (integer*2)
 ;       28      Index type
@@ -350,17 +375,21 @@ drec[119] = byte(extern)
 ;       101-119 Data base this item points to
 ;       120-125 Print format
 ;       126-170 Print headers
-;       171-199 Added by DBOPEN
+;       179-182   Number of values for item (1 for scalar) (integer*4)
+;       183-186 Starting byte position in original DBF record (integer*4)
+;       187-199 Added by DBOPEN
 irec=bytarr(200,nitems)
-rec=bytarr(200)
+
 headers = strmid(headers,0,15)       ;Added 15-Sep-92
+
 for i=0,nitems-1 do begin
+        rec=bytarr(200)
         rec[0:19]=32b  &  rec[101:170]=32b    ;Default string values are blanks
         rec[29:87] = 32b
         rec[0]  = byte(names[i])
         rec[20] = byte(type[i],0,2)
-        rec[22] = byte(numvals[i],0,2)
-        rec[24] = byte(sbyte[i],0,2)
+        rec[179] = byte(numvals[i],0,4)
+        rec[183] = byte(sbyte[i],0,4)
         rec[26] = byte(nbytes[i],0,2)
         rec[28] = index[i]
         rec[29] = byte(desc[i])
@@ -368,35 +397,43 @@ for i=0,nitems-1 do begin
         rec[101]= byte(strupcase(pointers[i]))
         rec[120]= byte(format[i])
         ff=strtrim(format[i])
-        flen=fix(gettok(strmid(ff,1,strlen(ff)-1),'.'))
+	test = strnumber(gettok(strmid(ff,1,strlen(ff)-1),'.'),val)
+        if test then flen =fix(val) else $    ;Modified Nov-10
+	   message,'Invalid print format supplied: ' + format[i],/IOERROR
         rec[98] = byte(flen,0,2)
         rec[126]= byte(headers[0,i]) > 32b    ;Modified Nov-91
         rec[141]= byte(headers[1,i]) > 32b
         rec[156]= byte(headers[2,i]) > 32b
         irec[0,i]=rec
+
 end
 ;
 ; Make sure user is on ZDBASE and write description file
 ;
+
  close,unit
- openw,unit,filename+'.dbh'
-   
+ openw,unit,zdir + filename+'.dbh'
 On_ioerror, NULL 
 if extern then begin
-        tmp = fix(drec,80,1) & host_to_ieee,tmp & drec[80] = byte(tmp,0,2)
-        tmp = fix(drec,82,1) & host_to_ieee,tmp & drec[82] = byte(tmp,0,2)
+        tmp = fix(drec,80,1) & byteorder,tmp,/htons & drec[80] = byte(tmp,0,2)
+        tmp = long(drec,105,1) & byteorder,tmp,/htonl & drec[105] = byte(tmp,0,4)
 ;
         tmp = fix(irec[20:27,*],0,4,nitems)
-        host_to_ieee,tmp
+        byteorder,tmp,/htons 
         irec[20,0] = byte(tmp,0,8,nitems)
 ;
         tmp = fix(irec[98:99,*],0,1,nitems)
-        host_to_ieee,tmp
+        byteorder,tmp,/htons 
         irec[98,0] = byte(tmp,0,2,nitems)
 ;
         tmp = fix(irec[171:178,*],0,4,nitems)
-        host_to_ieee,tmp
+        byteorder,tmp,/htons 
         irec[171,0] = byte(tmp,0,8,nitems)
+	
+	tmp = long(irec[179:186,*],0,2,nitems)
+        byteorder,tmp,/htonl 
+        irec[179,0] = byte(tmp,0,8,nitems)
+
 endif
 writeu, unit, drec
 writeu, unit, irec
@@ -406,7 +443,7 @@ writeu, unit, irec
 
 if newdb then begin
     close,unit
-    openw, unit, filename+'.dbf'
+    openw, unit, zdir + filename+'.dbf'
     header = bytarr(totbytes)
     p = assoc(unit,header)
     p[0] = header
@@ -419,7 +456,7 @@ nindex = total(index GT 0)
 ;
 ; create empty index file if needed
 ;
-if (nindex GT 0) and (newindex) then begin
+if (nindex GT 0) && (newindex) then begin
         indexed = where(index GT 0)
 ;
 ; create header array
@@ -457,16 +494,16 @@ if (nindex GT 0) and (newindex) then begin
         end
         totblocks = nextblock
         close, unit
-        openw, unit, filename+'.dbx'
+        openw, unit, zdir + filename+'.dbx'
 ;
         p = assoc(unit,lonarr(2))
         tmp = [long(nindex),maxentries]
-        if extern then host_to_ieee, tmp
+        if extern then byteorder, tmp,/htonl
         p[0] = tmp
 ;
         p = assoc(unit,lonarr(7,nindex),8)
         tmp = header
-        if extern then host_to_ieee, tmp
+        if extern then byteorder, tmp,/htonl
         p[0] = tmp
 endif
 free_lun, unit

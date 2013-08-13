@@ -43,6 +43,7 @@ PRO co_nutate, jd, ra, dec, d_ra, d_dec, eps=eps, d_psi=d_psi, d_eps=d_eps
 ; REVISION HISTORY:
 ;    Written  Chris O'Dell, 2002
 ;    Vector call to NUTATE   W. Landsman   June 2002
+;    Fix when JD is 1 element vector, and RA,Dec are vectors WL  May 2013
 ;-
 
  if N_Params() LT 4  then begin
@@ -59,6 +60,8 @@ PRO co_nutate, jd, ra, dec, d_ra, d_dec, eps=eps, d_psi=d_psi, d_eps=d_eps
 
  eps0 = 23.4392911*3600.d - 46.8150*T - 0.00059*T^2 + 0.001813*T^3
  eps = (eps0 + d_eps)/3600.*d2r ; true obliquity of the ecliptic in radians
+ if N_elements(eps) EQ 1 then eps = eps[0]
+ if N_elements(d_psi) Eq 1 then d_psi = d_psi[0]
 
 ;useful numbers
  ce = cos(eps)
@@ -101,8 +104,8 @@ PRO co_nutate, jd, ra, dec, d_ra, d_dec, eps=eps, d_psi=d_psi, d_eps=d_eps
  ra2 = ra2 /d2r
  dec2 = dec2 /d2r
 
- w = where(ra2 LT 0.)
- if w[0] ne -1 then ra2[w] = ra2[w] + 360.
+ w = where(ra2 LT 0., Nw)
+ if Nw GT 0 then ra2[w] = ra2[w] + 360.
 
 
 ; Return changes in ra and dec in arcseconds

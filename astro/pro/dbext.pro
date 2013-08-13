@@ -32,6 +32,7 @@ pro dbext,list,items,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12
 ;       check for INDEXED items   W. Landsman   Feb. 1989
 ;       Converted to IDL V5.0   W. Landsman   September 1997
 ;       Avoid EXECUTE() call for V6.1 or later  W. Landsman   December 2006
+;       Assume since V6.1   W. Landsman June 2009
 ;-
 ;*****************************************************************
  On_error,2
@@ -69,11 +70,8 @@ pro dbext,list,items,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12
         if N_elements(list) eq 1 then list = lonarr(1) + list
         for i=0,nitems - 1 do begin                         ;Get indexed items
           itind = it[ind[i]]
-           if !VERSION.RELEASE GE '6.1' then $
-	  dbext_ind,list,itind,dbno,scope_varfetch('v' + strtrim(ind[i]+1,2))$
-	  else $    
-          test = execute('dbext_ind,list,itind,dbno,v' + strtrim(ind[i]+1,2)) 
-        endfor
+   	  dbext_ind,list,itind,dbno,scope_varfetch('v' + strtrim(ind[i]+1,2))
+       endfor
 
  endif else begin     
 

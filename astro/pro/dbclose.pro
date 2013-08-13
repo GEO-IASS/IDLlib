@@ -18,13 +18,13 @@ pro dbclose,dummy
 ;       the data base files currently opened are closed
 ;
 ; PROCEDURE CALLS:
-;       DB_INFO(), HOST_TO_IEEE
+;       DB_INFO()
 ; HISTORY:
 ;       version 2  D. Lindler  Oct. 1987
 ;       For IDL version 2      August 1990
 ;       William Thompson, GSFC/CDS (ARC), 30 May 1994
 ;                Added support for external (IEEE) data format
-;       Converted to IDL V5.0   W. Landsman   September 1997
+;       Remove call to HOST_TO_IEEE   W. Landsman June 2013
 ;-
 ;------------------------------------------------------------------------
  On_error,2
@@ -38,7 +38,8 @@ pro dbclose,dummy
 
  if update EQ 1 then begin		;update header
 	output = [db_info('entries',0), db_info('seqnum',0)]
-	if qdb[119] eq 1 then host_to_ieee, output	;External format?
+	if qdb[119] eq 1 then $
+	     swap_endian_inplace, output, /Swap_if_little ;External format?
         qdbrec[0] = byte(output,0,8)
  endif
 

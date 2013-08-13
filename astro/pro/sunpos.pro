@@ -87,7 +87,7 @@ PRO sunpos, jd, ra, dec, longmed, oblt, RADIAN = radian
  l = (279.696678d0+((36000.768925d0*t) mod 360.0d0))*3600.0d0
 
 ;  allow for ellipticity of the orbit (equation of centre)
-;  using the Earth's mean anomoly ME
+;  using the Earth's mean anomaly ME
 
  me = 358.475844d0 + ((35999.049750D0*t) mod 360.0d0)
  ellcor  = (6910.1d0 - 17.2D0*t)*sin(me*dtor) + 72.3D0*sin(2.0D0*me*dtor)

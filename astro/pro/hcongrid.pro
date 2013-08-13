@@ -105,8 +105,12 @@ pro hcongrid, oldim, oldhd, newim, newhd, newx, newy, HALF_HALF = half_half, $
 ;       Now works when both /INTERP and /HALF are set W. Landsman January 2002
 ;       Fix output astrometry for non-equal plate scales for PC matrix or
 ;       CROTA2 keyword, added ALT keyword.   W. Landsman May 2005
+;       Update distortion parameters if present  W. Landsman January 2008
+;       Don't update BSCALE/BZERO for unsigned integer W.Landsman Mar 2008
+;       Write CRPIX as Double precision if necessary W. Landsman Oct 2012
 ;- 
  On_error,2
+ compile_opt idl2
  Npar = N_params()      ;Check # of parameters
 
  if Npar EQ 0  then begin 
@@ -126,18 +130,20 @@ pro hcongrid, oldim, oldhd, newim, newhd, newx, newy, HALF_HALF = half_half, $
  endif else begin
 ;   Check for valid 2-D image & header
   check_FITS, oldim, oldhd, dimen, /NOTYPE,ERRMSG = errmsg
+
   if errmsg NE '' then begin
         if not save_err then message,'ERROR - ' + errmsg,/CON
         return
   endif
   if N_elements(dimen) NE 2 then begin 
       errmsg =  'Input image array must be 2-dimensional'
-      if not save_err then message,'ERROR - ' + errmsg,/CON
+      if ~save_err then message,'ERROR - ' + errmsg,/CON
       return
   endif 
   xsize = dimen[0]  &  ysize = dimen[1]
  endelse
- 
+    tname = size(oldim,/tname)
+
  if keyword_set(CUBIC) then interp = 2
  if N_elements(interp) EQ 0 then interp = 1
 
@@ -147,7 +153,7 @@ pro hcongrid, oldim, oldhd, newim, newhd, newx, newy, HALF_HALF = half_half, $
  2:   type = ' Cubic Interpolation'
  else: begin 
        errmsg = 'Illegal value of INTERP keyword, must be 0, 1, or 2'
-       if not save_err then  message,'ERROR - ' + errmsg,/CON
+       if ~save_err then  message,'ERROR - ' + errmsg,/CON
        return
        end
  endcase
@@ -164,7 +170,7 @@ pro hcongrid, oldim, oldhd, newim, newhd, newx, newy, HALF_HALF = half_half, $
    endelse 
  endif
  
- if ( xsize EQ newx ) and ( ysize EQ newy ) then begin 
+ if ( xsize EQ newx ) && ( ysize EQ newy ) then begin 
        message,'Output image size equals input image size',/INF
        return
  endif
@@ -224,13 +230,24 @@ pro hcongrid, oldim, oldhd, newim, newhd, newx, newy, HALF_HALF = half_half, $
   
  if keyword_set(half_half) then begin
      sxaddpar, newhd, 'CRPIX1' + alt, $
-                      (crpix[0]+0.5)*xratio + 0.5, FORMAT='(G14.7)'
+                      (crpix[0]+0.5)*xratio + 0.5
      sxaddpar, newhd, 'CRPIX2' + alt,  $
-                       (crpix[1]+0.5)*yratio + 0.5, FORMAT='(G14.7)'
+                       (crpix[1]+0.5)*yratio + 0.5
  endif else begin 
-     sxaddpar, newhd, 'CRPIX1' + alt , crpix[0]*xratio + 1.0, FORMAT='(G14.7)'
-     sxaddpar, newhd, 'CRPIX2' + alt , crpix[1]*yratio + 1.0, FORMAT='(G14.7)'
+     sxaddpar, newhd, 'CRPIX1' + alt , crpix[0]*xratio + 1.0
+     sxaddpar, newhd, 'CRPIX2' + alt , crpix[1]*yratio + 1.0
  endelse 
+
+
+ if tag_exist(astr,'DISTORT') then begin
+         distort = astr.distort
+	 message,'Updating SIP distortion parameters',/INF
+         update_distort,distort, [1./xratio,0],[1./yratio,0]
+	 astr.distort= distort
+	 add_distort, newhd, astr
+   endif	 
+
+
 
  if (noparams NE 2) then begin 
 
@@ -243,7 +260,7 @@ pro hcongrid, oldim, oldhd, newim, newhd, newx, newy, HALF_HALF = half_half, $
         cd = astr.cd
 	if noparams EQ 1 then begin
 ;Can no longer  use the simple CROTA2 convention, change to PC keywords
-	 sxaddpar,newhd,'PC1_1'+alt, cd[0,0]
+	 sxaddpar,newhd,'PC1_1'+alt, cd[0,0] 
 	 sxaddpar, newhd,'PC2_2'+alt, cd[1,1]
          sxdelpar, newhd, ['CROTA2','CROTA1']
         endif	
@@ -263,18 +280,23 @@ pro hcongrid, oldim, oldhd, newim, newhd, newx, newy, HALF_HALF = half_half, $
  endelse
  endif 
 
-; Update BSCALE and BZERO if needed
+; Adjust BZERO and BSCALE for new pixel size, unless these values are used
+; to define unsigned integer data types.  
 
- bscale = sxpar( oldhd,'BSCALE', count = N_bscale)
- if (N_bscale NE 0) and ( bscale NE 1 ) then $
-     sxaddpar, newhd, 'BSCALE', bscale/pix_ratio
+ bscale = sxpar( oldhd, 'BSCALE')
+ bzero = sxpar( oldhd, 'BZERO')
+ unsgn = (tname EQ 'UINT') || (tname EQ 'ULONG') 
 
- bzero = sxpar( oldhd,'BZERO', count = N_bzero)
- if (N_bzero NE 0) and ( bzero NE 0) then $
-       sxaddpar, newhd, 'BZERO', bzero/pix_ratio
+ if ~unsgn then begin 
+ if (bscale NE 0) && (bscale NE 1) then $
+    sxaddpar, newhd, 'BSCALE', bscale/pix_ratio, 'Calibration Factor'
+ if (bzero NE 0) then sxaddpar, newhd, 'BZERO', bzero/pix_ratio, $
+       ' Additive Constant for Calibration'
+ endif 
 
  if npar EQ 2 then oldhd = newhd else $
        if npar EQ 1 then oldim = newhd
+
 
  return
  end

@@ -26,6 +26,7 @@ MAX_LIKELIHOOD - Deconvolution by maximum likelihood, given a PSF
 MEDARR - Median filter across a set of images (e.g. for cosmic ray removal)
 POSITIVITY() - Map an image uniquely and smoothly into all positive values
 PSF_GAUSSIAN() - Create a 1-d, 2-d, or 3-d Gaussian with specified FWHM, center
+RINTER() = Cubic interpolation at a set of reference points
 SIGMA_FILTER() - Replace pixels deviant by more than a specified sigma from
     its neighbors.  
 ----------------------------------------------------------------------------

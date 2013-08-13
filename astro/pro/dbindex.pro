@@ -39,9 +39,12 @@ pro dbindex,items
 ;                W. Landsman   December 2006
 ;       Automatically enlarge .dbx file if needed, fix major bug in last
 ;             update    W. Landsman Dec 2006
+;       Assume since V6.1    W. Landsman   June 2009
+;       Allow sorted string items   W. Landsman   October 2009
 ;-                                         
 ;*****************************************************************
  On_error,2                ;Return to caller
+ compile_opt idl2
 
 ; Check to see if data base is opened for update
 
@@ -127,9 +130,7 @@ pro dbindex,items
         ;
         ; place item in variable v
         ;
-	if !VERSION.RELEASE GE '6.1' then $
-	   v = (scope_varfetch('v' + strtrim(i+1,2))) else $
-           status = execute('v=v'+strtrim(i+1,2))
+        v = (scope_varfetch('v' + strtrim(i+1,2))) 
         pos = where(hitem EQ indexed[i], N_found)
         if N_found LE 0 then goto, NOGOOD    
         pos = pos[0]
@@ -162,13 +163,20 @@ pro dbindex,items
  
         3: begin                                ; sort item before storage
                 
-                sub=bsort(v)                    ;sort values
-                v=v[sub]
-                nb=(nentries+511)/512           ;number of 512 value blocks
+                if idltype[i] EQ 7 then begin 
+		    svv = string(v)
+		    sub= bsort(svv) 
+		    v = byte(svv[sub])
+		endif     else begin 
+		   sub=bsort(v)                    ;sort values
+                   v=v[sub]
+                endelse
+		nb=(nentries+511)/512           ;number of 512 value blocks
                 ind=l64indgen(nb)*512LL             ;position at start of each block
-                sval=v[ind]                     ;value at start of each block
+                if idltype[i] EQ 7 then sval=v[*,ind] else sval = v[ind] 
+		                    ;value at start of each block
                 datarec = dbindex_blk(unit, hblock[pos], 512, 0, idltype[i])
-                datarec[0] = bswap ? swap_endian(sval,/swap_if_little) : sval
+ 		datarec[0] = bswap ? swap_endian(sval,/swap_if_little) : sval
 ;
                 datarec = dbindex_blk(unit, sblock[pos], 512, 0, idltype[i])
   		datarec[0] =  bswap ? swap_endian(v,/swap_if_little) : v
@@ -178,12 +186,20 @@ pro dbindex,items
                 
                 datarec = dbindex_blk(unit, ublock[pos], 512, 0, idltype[i])
  		datarec[0] =  bswap ? swap_endian(v,/swap_if_little) : v
-
-                sub=bsort(v)                    ;sort values
-                v=v[sub]
-                nb=(nentries+511)/512           ;number of 512 value blocks
+                if idltype[i] EQ 7 then begin 
+		    svv = string(v)
+		    sub= bsort(svv) 
+		    v = byte(svv[sub])
+		endif     else begin 
+		   sub=bsort(v)                    ;sort values
+                   v=v[sub]
+                endelse
+   
+   
+                  nb=(nentries+511)/512           ;number of 512 value blocks
                 ind=l64indgen(nb)*512LL             ;position at start of each block
-                sval=v[ind]                     ;value at start of each block
+                if idltype[i] EQ 7 then sval=v[*,ind] else sval = v[ind] 
+		                    ;value at start of each block
                 datarec = dbindex_blk(unit, hblock[pos], 512, 0, idltype[i])
                 datarec[0] = bswap ? swap_endian(sval,/swap_if_little) : sval
  ;
@@ -191,7 +207,7 @@ pro dbindex,items
 		datarec[0] =  bswap ? swap_endian(v,/swap_if_little) : v
 ;
                  reclong[0] = bswap ?swap_endian(sub+1,/swap_if_little) : sub+1                ;indices
-           end
+	   end
         endcase
 endfor
 return

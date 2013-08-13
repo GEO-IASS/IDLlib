@@ -149,7 +149,7 @@ while par ne '' do begin
   end; while
 
 ;
-; truncate arrarys down to proper number of items.
+; truncate arrays down to proper number of items.
 ;
   items  = items[0:nitems-1]
   values = values[0:nitems-1,*]

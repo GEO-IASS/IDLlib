@@ -19,7 +19,7 @@ function hermite,xx,ff,x, FDERIV = fderiv
 ; INPUT PARAMETERS:
 ;       XX - Vector giving tabulated X values of function to be interpolated
 ;               Must be either monotonic increasing or decreasing   
-;       FF - Tabuluated values of function, same number of elements as X
+;       FF - Tabulated values of function, same number of elements as X
 ;       X -  Scalar or vector giving the X values at which to interpolate
 ;
 ; OPTIONAL INPUT KEYWORD:

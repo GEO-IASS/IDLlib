@@ -19,7 +19,8 @@ if (value EQ 'DONE') or (exclusive) then begin
 END
 
 PRO select_w, items, iselected, comments, command_line, only_one, $
-	Count = count, GROUP_LEADER=GROUP, selectin = selectin
+	Count = count, GROUP_LEADER=GROUP, selectin = selectin, columns = columns, $
+	y_scroll_size = y_scroll_size
 ;+
 ; NAME:
 ;	SELECT_W    
@@ -45,6 +46,8 @@ PRO select_w, items, iselected, comments, command_line, only_one, $
 ;	only_one - integer flag. If set to 1 then the user can only select
 ;		one item.  The routine returns immediately after the first
 ;		selection is made.
+;	columns - number of columns (default = 8)
+;   y_scroll_size - size of GUI in device coordinates for scrolling large lists.
 ; OPTIONAL KEYWORD INPUT
 ;       SELECTIN - vector of items to be pre-selected upon input (not used for
 ;               only_one option)
@@ -62,14 +65,16 @@ PRO select_w, items, iselected, comments, command_line, only_one, $
 ;	Written, K. Venkatakrishna & W. Landsman, Hughes/STX    January, 1992
 ;	Widgets made MODAL.  M. Greason, Hughes STX, 15 July 1992.
 ;       Changed handling of MODAL keyword for V5.0   W.Thompson  September 1997
-;	Converted to IDL V5.0   W. Landsman   September 1997
 ;       Added selectin keyword  D. Lindler 01/12/99 
+;   Added Columns, y_scroll_size keyword inputs, D. Lindler 6/20/2013
 ;-
 ;
  On_error,2
  common select_w, val, exclusive
 
+ if N_elements(only_one) EQ 0 then only_one = 0
  if N_params() LT 5 then exclusive = 0 else exclusive = only_one
+ if N_elements(columns) eq 0 then columns = 8
 
  val = -1
 
@@ -80,10 +85,10 @@ PRO select_w, items, iselected, comments, command_line, only_one, $
         base = WIDGET_BASE( TITLE = command_line, /COLUMN, MODAL=MODAL, $
                 GROUP_LEADER=GROUP)
  if only_one then $
-       XMENU, items, base, COLUMN=8  $
+       XMENU, items, base, COLUMN=columns, y_scroll_size=y_scroll_size  $
     else begin 
        donebut = WIDGET_BUTTON( base, VALUE = "DONE", UVALUE = -1) 
-       XMENU, items, base, /NONEXCLUSIVE, COLUMN=8, buttons=buttons
+       XMENU, items, base, /NONEXCLUSIVE, COLUMN=columns, buttons=buttons, /scroll, y_scroll_size=y_scroll_size
        if n_elements(selectin) gt 0 then begin
                 for i=0,n_elements(selectin)-1 do $
                         widget_control,buttons(selectin[i]),set_button=1

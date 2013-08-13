@@ -83,9 +83,9 @@
 ;
   by_pixel =  KEYWORD_SET(BY_PIXEL)
 ;
- IF NOT KEYWORD_SET(r_mix) THEN r_mix = 1.0
- IF NOT KEYWORD_SET(g_mix) THEN g_mix = 1.0
- IF NOT KEYWORD_SET(b_mix) THEN b_mix = 1.0
+ IF ~KEYWORD_SET(r_mix) THEN r_mix = 1.0
+ IF ~KEYWORD_SET(g_mix) THEN g_mix = 1.0
+ IF ~KEYWORD_SET(b_mix) THEN b_mix = 1.0
 ;
 ;  Now load the colour components
 ;

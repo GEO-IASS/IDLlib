@@ -57,9 +57,9 @@ pro hboxave, oldim, oldhd, newim, newhd, box, ERRMSG = errmsg   ;Boxaverage and 
 ;       IDLV2 changes, sxaddpar format keyword added, J. Isensee, July,1990
 ;       Fix 0.5 pixel offset in new CRPIX computation W. Landsman, Dec, 1991
 ;       Update BSCALE even if no astrometry present   W. Landsman, May 1997
-;       Converted to IDL V5.0   W. Landsman   September 1997
 ;       Added ERRMSG keyword, Use double formatting   W. Landsman   April 2000
 ;       Recognize PC matrix astrometry format    W. Landsman   December 2001
+;       Use V6.0 notation  W. Landsman  October 2012
 ;- 
  On_error,2                               ;Return to caller on error
 
@@ -75,13 +75,13 @@ pro hboxave, oldim, oldhd, newim, newhd, box, ERRMSG = errmsg   ;Boxaverage and 
 ;                                    Check for valid 2-D image & header
   check_FITS, oldim, oldhd, dimen, /NOTYPE, ERRMSG = errmsg
   if errmsg NE '' then begin
-        if not save_err then message,'ERROR - ' + errmsg,/CON
+        if ~save_err then message,'ERROR - ' + errmsg,/CON
         return
   endif
 
   if N_elements(dimen) NE 2 then begin 
            errmsg = 'Input image array must be 2-dimensional'
-           if not save_err then message,'ERROR - ' + errmsg,/CON
+           if ~save_err then message,'ERROR - ' + errmsg,/CON
            return
   endif
  
@@ -107,7 +107,7 @@ pro hboxave, oldim, oldhd, newim, newhd, box, ERRMSG = errmsg   ;Boxaverage and 
  newx = xsize/float(box)
  newy = ysize/float(box)
 
- if (newx*box NE xsize) or (newy*box NE ysize) then $
+ if (newx*box NE xsize) || (newy*box NE ysize) then $
     message,'ERROR - Box size does not evenly divide image size'
 
  if npar GT 3 then newim = boxave( oldim, box) else $
@@ -150,7 +150,7 @@ pro hboxave, oldim, oldhd, newim, newhd, box, ERRMSG = errmsg   ;Boxaverage and 
  endif
  
  bscale = sxpar( oldhd, 'BSCALE')
- if ( bscale NE 0 )  and ( bscale NE 1) then $
+ if ( bscale NE 0 )  && ( bscale NE 1) then $
       sxaddpar, newhd, 'BSCALE', bscale*pix_ratio, ' CALIBRATION FACTOR'
 
  bzero = sxpar( oldhd, 'BZERO')

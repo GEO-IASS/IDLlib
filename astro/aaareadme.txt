@@ -1,4 +1,4 @@
-THE IDL ASTRONOMY USER'S LIBRARY (December 2006)
+THE IDL ASTRONOMY USER'S LIBRARY (January 2013)
 
 The IDL Astronomy Users Library is a central repository for general purpose 
 astronomy procedures written in IDL.    The library currently contains
@@ -13,9 +13,8 @@ Astrophysics Data program.
 
 The homepage for the IDL Astronomy Library is  http://idlastro.gsfc.nasa.gov.
 There is no longer any FTP access and downloads must be performed from the Web
-or using WGET.     The default version of the Library requires IDL V5.5,
-although earlier frozen versions are available for  V4.0-V5.0, V5.1, V5.2, V5.3,
-and V5.4.     
+or using WGET.     The default version of the Library requires IDL V6.1,
+although earlier frozen versions are available in the old/ directory.
 
 The success of the IDL Astronomy User's Library depends upon the
 willingness of users to give as well as take.   Submission of relevant
@@ -28,7 +27,7 @@ infrequent.  I will post news about major updates to the comp.lang.idl-pvwave
 newsgroup.
 
 Questions about the IDL Astronomy Library can be addressed to 
-Wayne Landsman     landsman@mpb.gsfc.nasa.gov
+Wayne Landsman     Wayne.Landsman@nasa.gov
                    (301)-286-3625
 
 
@@ -45,6 +44,10 @@ The directory contains the following files
   contents.txt - an ASCII file giving one-line descriptions of all
         500+ procedures currently in the Library.   This listing is also 
         available at http://idlastro.gsfc.nasa.gov/contents.html
+  coyote_astron.tar.gz - A gzip'ed tar file of the Coyote library procedures 
+        used by the Astronomy library.    This file is an alternative to 
+	downloading the entire Coyote library at 
+	http://www.idlcoyote.com/documents/programs.php		
   guidelines.txt - Suggested programming guidelines for Astronomy library
         procedures.
   news.txt - an ASCII file listing all additions or changes to the Library 
@@ -67,27 +70,15 @@ The following subdirectories are available
   pro  - Contains all the Library procedures as individual ASCII files.
             These procedures are placed in subdirectories according to their
             category, e.g. pro/fits, pro/sdas, pro/idlphot
-  v4 - Contains the IDL Astronomy Library procedures formatted for use with
-            IDL V3.6 through V5.0.
-  v51 - Contains a frozen version of the Library formatted for use with V5.1
-  v52 - Contains a frozen version of the Library formatted for use with V5.2
-  v53 - Contains a frozen version of the Library formatted for use with V5.3
-  v54 - Contains a frozen version of the Library formatted for use with V5.4
-  v56 - A beta test directory of procedures upgraded to take advantage of new
-            features  introduced in IDL V5.6.   These procedures will *not* run
-            in earlier versions of IDL.
-  v60 - A beta test directory of procedures upgraded to take advantage of new
-            features  introduced in IDL V6.0.  
-  v61 - A beta test directory of procedures using new features in IDL V6.1
+  old - Contains tar files of frozen versions of the IDL Astronomy Library 
+        compatible with IDL versions 4.0, 5.1, 5.2, 5.3, 5.4, 5.5. and V5.6
+  v64 - A beta test directory of procedures using new features in IDL V6.4
   zdbase - Contains compressed binary tar files of popular astronomical
            catalogs formatted as IDL databases.   See the file
-           zdbase/README for more info. 
+           zdbase/aaareadme.txt for more info. 
   contrib - contains self-contained IDL astronomy-related packages that
            are *not* part of the standard astronomy library distribution.
-           See contrib/README for more info.
-
-
-
+           See contrib/aaareadme.txt for more info.
 
 
 

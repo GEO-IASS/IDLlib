@@ -51,12 +51,12 @@ pro FindPro, Proc_Name, NoPrint=NoPrint, DirList=DirList, ProList=ProList
 ;
 ;       IDL> findpro, 'curvefit', DIRLIST=DirList
 ;       Procedure curvefit.pro found in directory  /home/user/.
-;       Procedure curvefit.pro found in directory  /home/idl/lib/userlib 
+;       Procedure curvefit.pro found in directory  /software/IDL/idl82/lib/
 ;       IDL> help, DirList
 ;       DIRLIST         STRING    = Array(2) 
 ;       IDL> help, DirList[0], DirList[1]
 ;       <Expression>    STRING    = '/home/user'
-;       <Expression>    STRING    = '/home/idl/lib/userlib' 
+;       <Expression>    STRING    = '/software/IDL/idl82/lib/' 
 ;
 ;     (2) Find all procedures in one's !path containing the characters "zoom" 
 ;
@@ -66,9 +66,9 @@ pro FindPro, Proc_Name, NoPrint=NoPrint, DirList=DirList, ProList=ProList
 ;       or procedure, or for a FORTRAN or C routine added with CALL_EXTERNAL.
 ;       Remember that Unix is case sensitive, and most procedures will be in
 ;       lower case.
-;
 ; PROCEDURES USED:
-;       ZPARCHECK, FDECOMP
+;       FDECOMP   -- Decompose file name
+;
 ; REVISION HISTORY:
 ;       Based on code extracted from the GETPRO procedure, J. Parker 1994
 ;       Use the intrinsic EXPAND_PATH function    W. Landsman Nov. 1994
@@ -83,6 +83,8 @@ pro FindPro, Proc_Name, NoPrint=NoPrint, DirList=DirList, ProList=ProList
 ;       Force lower case check for .pro and .sav    D. Swain  September 2002 
 ;       Use FILE_SEARCH() if V5.5 or later   W. Landsman June 2006
 ;       Assume since V55, remove VMS support W. Landsman Sep. 2006
+;       Assume since V6.0, use file_basename() W.Landsman Feb 2009
+;       Specify whether an intrinsic function or procedure W.L.  Jan 2013
 ;
 ;-
 ;/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/
@@ -93,12 +95,13 @@ pro FindPro, Proc_Name, NoPrint=NoPrint, DirList=DirList, ProList=ProList
  if (N_params() EQ 0) then begin      ;Prompt for procedure name?
    Proc_Name = ' ' 
    read,'Enter name of procedure for which you want the path: ',Proc_Name
- endif else zparcheck, 'getpro', Proc_Name, 1, 7, 0, 'Procedure name'
+ endif else $
+   if (size(proc_name,/type) NE 7 ) && (N_elements(proc_name) NE 1) then $
+       message,'ERROR - First parameter (.pro name) must be a scalar string'
 
  NoPrint = keyword_set(NoPrint)
 
- fdecomp, Proc_Name, Disk, Dir, Name      ;Don't want file extensions
- Name = strtrim( Name, 2 )  
+ Name = strtrim( file_basename(proc_name,'.pro'), 2 )  
 
 ; Set up separate file and directory separators for current OS
 
@@ -121,7 +124,7 @@ pro FindPro, Proc_Name, NoPrint=NoPrint, DirList=DirList, ProList=ProList
     
       if (Nfile ge 1) then begin                     ;Found by FILE_SEARCH?
        fdecomp, ProList, ddisk,ddir,fname,ext
-       dirlist = ddisk + ddir 
+       dirlist = ddisk + ddir
        found = 1b
        for j = 0,nfile-1 do begin
           case strlowcase(ext[j]) of 
@@ -138,23 +141,28 @@ pro FindPro, Proc_Name, NoPrint=NoPrint, DirList=DirList, ProList=ProList
 ; check if it is an intrinsic IDL procedure or function
  
   funcnames = routine_info(/system,/func)
-  test = where ( funcnames EQ strupcase(name), fcount)
+  fcount = ~array_equal( funcnames NE strupcase(name), 1b )
+;  test = where ( funcnames EQ strupcase(name), fcount)    Slower method
 
   funcnames = routine_info(/system)
-  test = where ( funcnames EQ strupcase(name), pcount)
-
-   if (fcount EQ 0) and (pcount EQ 0) then begin
+  pcount = ~array_equal( funcnames NE strupcase(name) , 1b) 
+;
+   
+   if (fcount EQ 0) && (pcount EQ 0) then begin
         prolist = strarr(1)
   	dirlist = strarr(1)
-       if not(NoPrint) then begin
+       if ~NoPrint then begin
          message, 'Procedure '+Name+' not found in a !PATH directory.', /CONT
          message, 'Check your spelling or search individual directories.', /INF
       endif
    endif else begin 
       DirList = ['INTRINSIC']
       ProList = ['INTRINSIC']
-      if not(NoPrint) then begin
-         message, 'Procedure ' + Name + ' is an intrinsic IDL procedure.', /CONT
+      if ~NoPrint then begin
+         if pcount NE 0 then $
+         message, 'Procedure ' + Name + ' is an intrinsic IDL procedure.', $
+	    /CONT else $
+	 message, 'Procedure ' + Name + ' is an intrinsic IDL function.',/CONT   
          message, 'No path information available.', /INF
       endif
    endelse

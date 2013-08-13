@@ -12,7 +12,7 @@ pro prob_kuiper, D, N_eff, probks
 ; CALLING SEQUENCE:
 ;       prob_kuiper, D, N_eff, probks
 ;
-; INPUT PARAMATERS:
+; INPUT PARAMETERS:
 ;       D -  Kuiper statistic, floating scalar, always non-negative
 ;       N_eff - Effective number of data points, scalar.   For a 2 sided test
 ;               this is given by (N1*N2)/(N1+N2) where N1 and N2 are the number

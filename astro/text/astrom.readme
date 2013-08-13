@@ -1,4 +1,4 @@
-/astrom                                                  January 2007
+/astrom                                                   January 2008
 
 This directory contain IDL procedures for manipulating FITS images which include
 header keywords specifying the coordinate system.   The FITS header must follow
@@ -9,10 +9,10 @@ http://fits.gsfc.nasa.gov/fits_wcs.html.  All projections in that paper are
 implemented as of May 2004      The IDL code has been  validated using the test
 images on http://www.atnf.csiro.au/people/mcalabre/WCS/sample_data/index.html 
 
-Bill Thompson has written different IDL implementation of the WCS specification
-which also includes support fo solar and spectroscopic coordinates.    His
-routines are available at the SolarSoftWare (SSW) library at    
-http://sohowww.nascom.nasa.gov/solarsoft/gen/idl/wcs/
+Bill Thompson has written a different IDL implementation of the WCS
+specification which also includes support fo solar and spectroscopic
+coordinates.    His routines are available at the SolarSoftWare (SSW) library
+at     http://sohowww.nascom.nasa.gov/solarsoft/gen/idl/wcs/
 
 The FITS convention defines the center of the first pixel in the
 array to have coordinates (1,1).    This differs from the IDL convention where
@@ -76,6 +76,11 @@ procedure FITS_CD_FIX can be used to convert the FITS header to modern notation.
 (3) The CRPIX value is stored in the astrometry structure the same way as it is
 in the FITS header, i.e. in FORTRAN (first pixel is 1) convention.    
 
+(4) The procedures HREBIN and HCONGRID will update the astrometry, including the
+SIP distortion coefficients,  when expanding or contracting an image.   However,
+note that HROT or HROTATE currently will not update any SIP coefficients if
+present. 
+
 Special astrometry procedures are required for the Digitized Sky Survey Images
 which were released on CD-Rom in early 1994.    Information about the Guidestar
 images can be obtained from http://archive.stsci.edu/dss/
@@ -97,7 +102,7 @@ system including
   IMDBASE - (in /database) Find all catalog sources within the field of an 
             image (given a FITS header with astrometry)
 
-ABSCAL() - Apply the BSCALE and BZERO FITS keywords values to a data array
+ADD_DISTORT - Add a distortion structure into a FITS header
 AD2XY - Use astrometry structure to convert celestial to pixel coordinates 
 ADXY  - Use FITS header to convert celestial (RA,Dec) to pixel coordinates
 CONS_DEC() - Obtain the X and Y coordinates of a line of constant 

@@ -9,7 +9,7 @@ pro host_to_ieee, data, IDLTYPE = idltype
 ;     into IEEE-754 representation ("big endian" as used, e.g., in FITS data ).
 ;
 ;     Duplicates most of the functionality of the SWAP_ENDIAN_INPLACE procedure
-;     introduced in V5.6, with the addition of the IDLTYPE keyword.
+;     with the addition of the IDLTYPE keyword.
 ; CALLING SEQUENCE:
 ;     HOST_TO_IEEE, data, [ IDLTYPE = ]
 ;
@@ -53,7 +53,7 @@ pro host_to_ieee, data, IDLTYPE = idltype
  if npts EQ 0 then $
      message,'ERROR - IDL data variable (first parameter) not defined'
 
- if not keyword_set( idltype) then idltype = size(data,/type)
+ if ~keyword_set( idltype) then idltype = size(data,/type)
 
  case idltype of
 

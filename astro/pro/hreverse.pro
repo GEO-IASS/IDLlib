@@ -59,6 +59,7 @@ pro hreverse, oldim, oldhd, newim, newhd, subs, SILENT = silent, ERRMSG= errmsg
 ;       Converted to IDL V5.0   W. Landsman   September 1997
 ;       Added ERRMSG, Use double precision formatting, W. Landsman April 2000
 ;       Recognize PC00n00m astrometry matrix   W. Landsman   December 2001
+;       Use V6.0 notation W. Landsman October 2012
 ;- 
  On_error, 2
  npar = N_params()
@@ -72,22 +73,22 @@ pro hreverse, oldim, oldhd, newim, newhd, subs, SILENT = silent, ERRMSG= errmsg
 ;                                    Check for valid 2-D image & header
  check_FITS, oldim, oldhd, dimen, /NOTYPE, ERRMSG = errmsg
   if errmsg NE '' then begin
-        if not save_err then message,'ERROR - ' + errmsg,/CON
+        if ~save_err then message,'ERROR - ' + errmsg,/CON
         return
   endif
 
   if N_elements(dimen) NE 2 then begin 
         errmsg =  'ERROR - Input image array must be 2-dimensional'
-        if not save_err then message,'ERROR - ' + errmsg,/CON
+        if ~save_err then message,'ERROR - ' + errmsg,/CON
         return
  endif
 
   xsize = dimen[0]  &  ysize = dimen[1]
 
  if npar EQ 3 then subs = newim 
- READSUBS: if (npar NE 3) and (npar NE 5) then $
+ READSUBS: if (npar NE 3) && (npar NE 5) then $
  read,'Enter 1 to reverse X dimension, 2 to reverse Y dimension: ',subs
- if  ( subs NE 2 ) and ( subs NE 1 ) then begin
+ if  ( subs NE 2 ) && ( subs NE 1 ) then begin
         message,'ERROR - Illegal Value of Subs parameter',/CON
         if npar then npar = npar -1     ;Make npar even
         goto, READSUBS    
@@ -95,7 +96,7 @@ pro hreverse, oldim, oldhd, newim, newhd, subs, SILENT = silent, ERRMSG= errmsg
 
  newhd = oldhd
  axis_name = ['X','Y']
- if not keyword_set(SILENT) then message, /INF, $
+ if ~keyword_set(SILENT) then message, /INF, $
 'Now reversing ' + strn(xsize) + ' by ' + strn(ysize) + ' image about ' + $
     axis_name[subs-1] + ' dimension'
 
@@ -121,7 +122,7 @@ if npar GE 4 then newim = reverse( oldim,subs ) else $
                  crpix1 = xsize  - (astr.crpix[0]-1)
                  sxaddpar, newhd, 'CRPIX1', crpix1
 
-         if (noparams LT 2) or (noparams EQ 3) then $
+         if (noparams LT 2) || (noparams EQ 3) then $
                 sxaddpar, newhd, 'CDELT1', -astr.cdelt[0] $
 
          else begin           ;If so, then convert them

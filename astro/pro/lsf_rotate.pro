@@ -24,7 +24,7 @@
 ;          The  number of points in LSF will be always be odd (the kernel is
 ;          symmetric) and equal to  either ceil(2*Vsini/deltav) or 
 ;          ceil(2*Vsini/deltav) +1 (whichever number is odd).    LSF will 
-;          always be of type DOUBLE.
+;          always be of type FLOAT.
 ;
 ;          To actually compute the broadening. the spectrum should be convolved
 ;          with the rotational LSF. 
@@ -53,7 +53,6 @@
 ;    "The Observation and Analysis of Stellar Photospheres" by D. Gray (1992)
 ; REVISION HISTORY:
 ;    Written,   W. Landsman                November 2001
-;    Changed to DOUBLE output		J Bailey	 June 2010
 ;-
     On_error,2
     compile_opt idl2
@@ -64,7 +63,7 @@
          return,-1
     endif
 
-    if N_elements(epsilon) EQ 0 then epsilon = 0.6d
+    if N_elements(epsilon) EQ 0 then epsilon = 0.6
     e1 = 2.0d*(1.0d - epsilon)
     e2 = !dpi*epsilon/2.0d
     e3 = !dpi*(1.0d - epsilon/3.0d)
@@ -76,6 +75,6 @@
     x = x*deltav/vsini  
     if arg_present(velgrid) then velgrid = x*vsini
     x1 = abs(1.0d - x^2)
-    return, double((e1*sqrt(x1) + e2*x1)/e3)
+    return, float((e1*sqrt(x1) + e2*x1)/e3)
    
     end   

@@ -67,7 +67,7 @@ FUNCTION ngp,value,posx,nx,posy,ny,posz,nz, $
 ;
 ; RESTRICTIONS:
 ;       All input arrays must have the same dimensions.
-;       Postition coordinates should be in `index units' of the
+;       Position coordinates should be in `index units' of the
 ;       desired grid: POSX=[0,NX>, etc.
 ;
 ; PROCEDURE:

@@ -5,7 +5,7 @@ PRO gcirc,u,ra1,dc1,ra2,dc2,dis
 ; PURPOSE:
 ;     Computes rigorous great circle arc distances.  
 ; EXPLANATION:
-;     Input position can either be either radians, sexigesimal RA, Dec or
+;     Input position can either be either radians, sexagesimal RA, Dec or
 ;     degrees.   All computations are double precision. 
 ;
 ; CALLING SEQUENCE:
@@ -27,8 +27,8 @@ PRO gcirc,u,ra1,dc1,ra2,dc2,dis
 ;              See U above for units;  double precision  
 ;
 ; PROCEDURE:
-;      "Cosine formula" (p. 7 of Smart's Spherical Astronomy or
-;      p. 12 of Green's Spherical Astronomy)
+;      "Haversine formula" see 
+;      http://en.wikipedia.org/wiki/Great-circle_distance
 ;
 ; NOTES:
 ;       (1) If RA1,DC1 are scalars, and RA2,DC2 are vectors, then DIS is a
@@ -40,12 +40,11 @@ PRO gcirc,u,ra1,dc1,ra2,dc2,dis
 ;       corresponding element of RA2,DC2.    If the input vectors are not the 
 ;       same length, then excess elements of the longer ones will be ignored.
 ;
-;       (2) Coordinates closer together than a few milliarcsec cannot
-;       be distinguished.  If you are in this realm, you should be
-;       using special-purpose algorithms.
-;
-;       (3) The function SPHDIST provides an alternate method of computing
+;       (2) The function SPHDIST provides an alternate method of computing
 ;        a spherical distance.
+;
+;       (3) The haversine formula can give rounding errors for antipodal
+;       points.
 ;
 ; PROCEDURE CALLS:
 ;      None
@@ -58,6 +57,8 @@ PRO gcirc,u,ra1,dc1,ra2,dc2,dis
 ;      Remove ISARRAY(), V5.1 version        W. Landsman   August 2000
 ;      Added option U=2                      W. Landsman   October 2006
 ;      Use double precision for U=0 as advertised R. McMahon/W.L.  April 2007
+;      Use havesine formula, which has less roundoff error in the 
+;             milliarcsecond regime      W.L. Mar 2009
 ;-
  compile_opt idl2
  On_error,2                            ;Return to caller
@@ -72,15 +73,6 @@ PRO gcirc,u,ra1,dc1,ra2,dc2,dis
    RETURN
  ENDIF
 
- scalar = (size(ra1,/N_Dimen) EQ 0) and (size(ra2,/N_dimen) EQ 0)
- IF scalar THEN BEGIN
-    IF (ra1 eq ra2) and (dc1 eq dc2) THEN BEGIN
-       dis = 0.0d0
-       IF npar eq 5 THEN $
-           print,'Positions are equal:  ', ra1, dc1
-       return
-    ENDIF
- ENDIF
 
  d2r    = !DPI/180.0d0
  as2r   = !DPI/648000.0d0
@@ -110,15 +102,16 @@ PRO gcirc,u,ra1,dc1,ra2,dc2,dis
                 'U must be 0 (radians), 1 ( hours, degrees) or 2 (degrees)'
  ENDCASE
 
- radif  = abs(rarad2-rarad1)
- pi_mod = where(radif gt !DPI, npi)         ;Make sure between 0 and 2*!PI
- IF npi gt 0 THEN radif[pi_mod] = 2.0*!DPI - radif[pi_mod]
- cosdis = sin(dcrad1)*sin(dcrad2) + cos(dcrad1)*cos(dcrad2)*cos(radif)
- dis    = acos(cosdis<1.0d0>(-1.0d0))
+ deldec2 = (dcrad2-dcrad1)/2.0d
+ delra2 =  (rarad2-rarad1)/2.0d
+ sindis = sqrt( sin(deldec2)*sin(deldec2) + $
+	  cos(dcrad1)*cos(dcrad2)*sin(delra2)*sin(delra2) )
+ dis = 2.0d*asin(sindis) 
+
  IF (u ne 0) THEN dis = dis/as2r
 
- IF (npar eq 5) and scalar THEN BEGIN
-    IF (u ne 0) and (dis ge 0.1) and (dis le 1000)  $
+ IF (npar eq 5) && (N_elements(dis) EQ 1) THEN BEGIN
+    IF (u ne 0) && (dis ge 0.1) && (dis le 1000)  $
        THEN fmt = '(F10.4)' $
        ELSE fmt = '(E15.8)'
     IF (u ne 0) THEN units = ' arcsec' ELSE units = ' radians'

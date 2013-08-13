@@ -19,7 +19,8 @@ pro rdfloat,name,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15,v16,v17, $
 ;                         COLUMNS, /DOUBLE, SKIPLINE = , NUMLINE = ]
 ;
 ; INPUTS:
-;      NAME - Name of ASCII data file, scalar string.  
+;      NAME - Name of ASCII data file, scalar string.  In VMS, an extension of 
+;              .DAT is assumed, if not supplied.
 ;
 ; OPTIONAL INPUT KEYWORDS:
 ;      COLUMNS - Numeric scalar or vector specifying which columns in the file
@@ -46,7 +47,7 @@ pro rdfloat,name,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15,v16,v17, $
 ;
 ; EXAMPLES:
 ;      Each row in a file 'position.dat' contains a star number and 6 columns
-;      of data giving an RA and Dec in sexigesimal format.   Read into IDL 
+;      of data giving an RA and Dec in sexagesimal format.   Read into IDL 
 ;      variables.     
 ;
 ;       IDL> rdfloat,'position.dat',ID,hr,min,sec,deg,dmin,dsec  
@@ -63,9 +64,7 @@ pro rdfloat,name,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15,v16,v17, $
 ;          data.
 ;      (2) Cannot be used to read strings
 ; PROCEDURES USED:
-;      NUMLINES()
-; MINIMUM IDL VERSION:
-;      V5.3 (uses STRSPLIT() )
+;      None.
 ; REVISION HISTORY:
 ;      Written         W. Landsman                 September 1995
 ;      Call NUMLINES() function                    February 1996
@@ -74,7 +73,8 @@ pro rdfloat,name,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15,v16,v17, $
 ;      Allow to skip more than 32767 lines  W. Landsman  June 2001
 ;      Added /SILENT keyword   W. Landsman         March 2002
 ;      Added COLUMNS keyword, use STRSPLIT    W. Landsman May 2002
-;      Use SKIP_LUN if V5.6 or later    W. Landsman Nov 2002
+;      Use SKIP_LUN if V5.6 or later          W. Landsman Nov 2002
+;      V5.6 version, use FILE_LINES()         W. Landsman Dec 2002
 ;-
   On_error,2                           ;Return to caller
 
@@ -86,10 +86,14 @@ pro rdfloat,name,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15,v16,v17, $
 
 ; Get number of lines in file
 
-   nlines = NUMLINES( name )
-   if nlines LT 0 then return
+   nlines = FILE_LINES( name )
+   if nlines LE 0 then begin
+        message,'ERROR - File ' + name+' contains no data',/CON
+	return
+   endif     
 
-   if not keyword_set( SKIPLINE ) then skipline = 0
+ 
+   if ~keyword_set( SKIPLINE ) then skipline = 0
    nlines = nlines - skipline
    if keyword_set( NUMLINE) then nlines = numline < nlines
 
@@ -98,29 +102,25 @@ pro rdfloat,name,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15,v16,v17, $
    openr, lun, name, /GET_LUN
    temp = ''
    if skipline GT 0 then $
-        if !VERSION.RELEASE GE '5.6' then $
-            skip_lun, lun, skipline, /lines else $
-            for i=0L,skipline-1 do readf, lun, temp
+        skip_lun, lun, skipline, /lines
    readf,lun,temp
    
-   colval = strsplit(temp)           ;Determine number of columns 
-   ncol = N_elements(colval)
-
+   
+   colval = strsplit(temp, count=ncol)         ;Determine number of columns
+ 
 ;Create big output array and read entire file into the array
 
-   if keyword_set(DOUBLE) then bigarr = dblarr(ncol, nlines, /NOZERO) $ 
-                          else bigarr = fltarr(ncol, nlines, /NOZERO) 
+   bigarr = keyword_set(DOUBLE) ? dblarr(ncol, nlines, /NOZERO):  $
+                                  fltarr(ncol, nlines, /NOZERO) 
 
    close,lun
    openr, lun, name
-   if skipline GT 0 then $
-       if !VERSION.RELEASE GE '5.6' then skip_lun, lun, skipline, /lines else $
-        for i=0L,skipline-1 do readf, lun, temp
+   if skipline GT 0 then skip_lun, lun, skipline, /lines 
 
    readf, lun, bigarr
    free_lun, lun
 
-   if not keyword_set(SILENT) then $
+   if ~keyword_set(SILENT) then $
        message, strtrim(nlines,2) + ' lines of data read',/INF
 
    Nvector = (N_params()-1) < ncol

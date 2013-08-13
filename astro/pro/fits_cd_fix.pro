@@ -9,7 +9,7 @@ pro fits_cd_fix,hdr, REVERSE = reverse
 ; EXPLANATION:
 ;    According the paper, "Representations of Celestial Coordinates in FITS"
 ;    by Calabretta & Greisen (2002, A&A, 395, 1077, available at 
-;    http://www.aoc.nrao.edu/~egreisen/) the rotation of an image from 
+;    http://fits.gsfc.nasa.gov/fits_wcs.html) the rotation of an image from 
 ;    standard coordinates is represented by a coordinate description (CD) 
 ;    matrix.    The standard representation of the CD matrix are PCn_m 
 ;    keywords, but CDn_m keywords (which include the scale factors) are
@@ -28,7 +28,7 @@ pro fits_cd_fix,hdr, REVERSE = reverse
 ;           replaced with those containing underscores.
 ;   
 ; OPTIONAL KEYWORD INPUT
-;      /REVERSE - this keyword does nothing, but is kept for compatiblity with
+;      /REVERSE - this keyword does nothing, but is kept for compatibility with
 ;            earlier versions.
 ; PROCEDURES USED:
 ;    SXADDPAR, SXDELPAR, SXPAR()
@@ -41,6 +41,7 @@ pro fits_cd_fix,hdr, REVERSE = reverse
 ;       & Calabretta standard   W. Landsman   July 2003
 ;-
  On_error,2
+ compile_opt idl2
 
  if N_params() LT 1 then begin
         print,'Syntax - FITS_CD_FIX, hdr'

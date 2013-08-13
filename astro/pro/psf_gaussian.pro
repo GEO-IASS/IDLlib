@@ -71,7 +71,6 @@ function psf_gaussian, parameters, NPIXEL=npixel, NDIMENSION=ndim, FWHM=fwhm,  $
 ;
 ; HISTORY:
 ;       Written, Frank Varosi NASA/GSFC 1991.
-;       Converted to IDL V5.0   W. Landsman   September 1997
 ;       Suppress underflow messages, add DOUBLE keyword. **Modified centroid
 ;       definition so integer position is pixel center** W. Landsman March 2002
 ;       Allow use of the ST_DEV (not STDEV) keyword W. Landsman Nov. 2002
@@ -81,7 +80,7 @@ function psf_gaussian, parameters, NPIXEL=npixel, NDIMENSION=ndim, FWHM=fwhm,  $
 	compile_opt idl2
 
         if (N_params() LT 1 ) and $
-            not (keyword_set( FWHM) or keyword_set(ST_DEV)) then begin
+            ~(keyword_set( FWHM) || keyword_set(ST_DEV)) then begin
                 print,'Syntax - psf = PSF_GAUSSIAN( parameters, NPIXEL = )'
                 print, $
        'or       psf = PSF_GAUSSIAN( FWHM = ,ST_DEV = ,NPIXEL = ,[CENTROID = ])'

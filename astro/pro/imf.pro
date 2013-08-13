@@ -24,7 +24,7 @@ function imf, mass, expon, mass_range
 ;               The values in mass_range should be monotonically increasing.
 ;
 ; OUTPUTS
-;       psi - mass function, number of stars per unit logarithimic mass interval
+;       psi - mass function, number of stars per unit logarithmic mass interval
 ;               evaluated for supplied masses
 ;
 ; NOTES:
@@ -62,9 +62,8 @@ function imf, mass, expon, mass_range
 ; REVISION HISTORY:
 ;       Written    W. Landsman              August, 1989  
 ;       Set masses LE mass_u rather than LT mass_u  August, 1992
-;       Major rewrite to accept arbitary power-law components   April 1993
+;       Major rewrite to accept arbitrary power-law components   April 1993
 ;       Convert EXPON to float if necessary  W. Landsman     March 1996
-;       Converted to IDL V5.0   W. Landsman   September 1997
 ;       Remove call to DATATYPE, V5.3 version  W. Landsman  August 2000
 ;-
   On_error,2

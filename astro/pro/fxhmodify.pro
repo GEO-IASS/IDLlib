@@ -18,7 +18,7 @@ PRO FXHMODIFY, FILENAME, NAME, VALUE, COMMENT, BEFORE=BEFORE,   $
 ;       NAME    = Name of parameter, scalar string  If NAME is already in the 
 ;                 header the value and possibly comment fields are modified. 
 ;                 Otherwise a new record is added to the header.  If NAME is 
-'                 equal to either "COMMENT" or "HISTORY" then the value will be 
+;                 equal to either "COMMENT" or "HISTORY" then the value will be 
 ;                 added to the record without replacement.  In this case the 
 ;                 comment parameter is ignored.
 ;
@@ -73,7 +73,7 @@ PRO FXHMODIFY, FILENAME, NAME, VALUE, COMMENT, BEFORE=BEFORE,   $
 ;       the structure of the FITS file, e.g. BITPIX, NAXIS, PCOUNT, etc.  Doing
 ;       so could corrupt the readability of the FITS file.
 ; Example:
-;       Modify the name 'OJBECT' keyword in the primary FITS header of a FITS 
+;       Modify the name 'OBJECT' keyword in the primary FITS header of a FITS 
 ;       file 'spec98.ccd' to contain the value 'test domeflat'
 ;
 ;       IDL> fxhmodify, 'spec98.ccd', 'OBJECT', 'test domeflat'
@@ -97,8 +97,10 @@ PRO FXHMODIFY, FILENAME, NAME, VALUE, COMMENT, BEFORE=BEFORE,   $
 ;               Modified so that ERRMSG is not touched if not defined.
 ;      Version 3.1 Wayne Landsman GSFC   17 March 2006
 ;               Fix problem in BLKSHIFT call if primary header  extended
-; Version     :
-;       Version 3.1, 17 March 2006
+;       Version 3.2 W. Landsman 14 November 204 
+;               Allow for need for 64bit number of bytes
+;; Version     :
+;       Version 3.2, 14 Nov 2007
 ;-
 ;
         COMPILE_OPT IDL2
@@ -200,11 +202,11 @@ NEXT_EXT:
                         IF NAXIS GT 1 THEN FOR I=2,NAXIS DO     $
                                 NDATA = NDATA*DIMS[I-1]
                 ENDIF ELSE NDATA = 0
-                NBYTES = (ABS(BITPIX) / 8) * GCOUNT * (PCOUNT + NDATA)
+                NBYTES = LONG64(ABS(BITPIX) / 8) * GCOUNT * (PCOUNT + NDATA)
 ;
 ;  Read the next extension header in the file.
 ;
-                NREC = LONG((NBYTES + 2879) / 2880)
+                NREC = (NBYTES + 2879) / 2880
                 POINT_LUN, -UNIT, POINTLUN              ;Current position
                 MHEAD0 = POINTLUN + NREC*2880L
                 POINT_LUN, UNIT, MHEAD0                 ;Next FITS extension

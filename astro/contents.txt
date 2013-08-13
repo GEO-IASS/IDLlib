@@ -1,4 +1,4 @@
-        Contents of IDL Astronomy User's Library              May, 2007
+        Contents of IDL Astronomy User's Library             July 2013
         (also see http://idlastro.gsfc.nasa.gov/contents.html)
 
 Astronomical Utilities    in pro/astro
@@ -48,6 +48,7 @@ GET_COORDS - Read in angular input in decimal or sexigesimal format
 GET_DATE - Get the current date in CCYY-MM-DD format (FITS standard)
 GET_JULDATE - Get the current Julian date as a double precision scalar
 GLACTC- Convert between Galactic (or SuperGalactic) and equatorial coordinates
+GLACTC_PM - Convert between celestial and Galactic (or Supergalactic) proper motion
 HADEC2ALTAZ -  Converts Hour Angle and Declination to Horizon (alt-az) coordinates                                 
 HELIO - Compute (low-precision) heliocentric coordinates of the planets 
 HELIO_JD() - Convert geocentric (reduced) Julian date to heliocentric Julian date
@@ -74,7 +75,7 @@ OBSERVATORY - Return coordinates, altitude & time zones of an observatory
 PLANCK() - Returns a blackbody flux for a given effective temperature
 PLANET_COORDS - Return low-precision RA and Dec of planets give a date(s)
 POSANG - Compute the position angle between sources of specified RA and Dec
-  	  - Precess RA and Dec to a new equinox
+PRECESS - Precess RA and Dec to a new equinox
 PRECESS_CD - Precess the PC (or CD) matrix in a FITS header to a new equinox
 PRECESS_XYZ - Precess equatorial geocentric rectangular coordinates
 PREMAT() - Returns precession matrix from equinox 1 to equinox 2
@@ -171,13 +172,14 @@ _________
 IRAFDIR - Describe IRAF images on specified directory
 IRAFRD -  Read a disk IRAF image file into IDL variables.  
 IRAFWRT - Write IDL image and header to an IRAF (.pix & .imh) file
+READ_FMR() - Read a journal (ApJ, AJ) machine-readable table into IDL
 WFPC2_READ - Read a Wide Field/Planetary Camera 2 (WFPC2) image
 
 -----------------------------------------------------------------------
 FITS Astrometry and Calibration  in pro/astrom (see text/astrom.tex)
 ________
 --------
-ABSCAL() - Apply the BSCALE and BZERO FITS keywords values to a data array
+ADD_DISTORT - Add SIP distortion parameters into a FITS header
 AD2XY - Use astrometry structure to convert celestial to pixel coordinates 
 ADXY  - Use FITS header to convert celestial (RA,Dec) to pixel coordinates
 CONS_DEC() - Obtain the X and Y coordinates of a line of constant 
@@ -212,6 +214,8 @@ PRECESS_CD - Precess coordinate description (CD) matrix in a FITS header
 PUTAST - Put astrometry parameters (e.g. rotation, plate scale) into a FITS header. 
 STARAST - Obtain an exact astrometry solution given the coordinates and
         plate position of 2 or 3 stars.
+UPDATE_DISTORT - Update SIP astrometry coefficients for a linear transformation	
+WCS_CHECK_CTYPE - Check that pair of CTYPE parameters conform to WCS format. 
 WCS_GETPOLE -  Compute the coordinates of the native pole for non-polar projection
 WCSSPH2XY - Convert between longitude,latitude to X,Y angular coordinates for
         25 different map projection types
@@ -398,6 +402,7 @@ MULTINOM - Simulate multinomial random variables
 NGP - Nearest Grid Point interpolation of irregularly gridded data
 PCA - Perform a principal component analysis (Karhunen-Loeve expansion)
 PENT() - Return the information entropy S of time-series data for a set of trial periods
+PERMUTE() - Rearrange the elements of an array in random order
 POIDEV() - Generate a Poisson random deviate 
 POLINT - Polynomial interpolation of an (X,Y) pair 
 POLYLEG() - Evaluate a Legendre polynomial with specified coefficients
@@ -416,6 +421,7 @@ RANDOMWISH - Draw random matrices from a Wishart distribution
 SIXLIN - Compute linear regression by 6 different methods.
 SPLINE_SMOOTH - Compute cubic smoothing spline to (weighted) data
 TABINV - Find the effective index of a function value.                          
+TRANSFORM_COEFF - Compute new polynomial coefficients under a linear transformation
 TRAPZD - Compute Nth iteration of trapezoidal rule.  Called by QSIMP, QTRAP
 TSC - Triangular Shaped Cloud interpolation of irregularly gridded data onto a regular grid
 TSUM() - Trapezoidal integration of the area under a curve
@@ -426,8 +432,8 @@ Plotting Procedures    in pro/plot
 ------------
 ------------
 CLEANPLOT - Reset all plotting system variables to their default (X) values
-LEGEND - Create an annotation legend for a plot
-LEGENDTEST - Demo program demonstrating the capabilities of LEGEND
+AL_LEGEND - Create an annotation legend for a plot
+AL_LEGENDTEST - Demo program demonstrating the capabilities of AL_LEGEND
 LINEID_PLOT - Annotate the identified lines in a spectrum
 MULTIPLOT - Create multiple plots with shared axes
 OPLOTERROR - Overplot Y vs. X with optional X and Y error bars
@@ -460,50 +466,18 @@ COMPARE_STRUCT() - Compare all matching Tag names and return differences
 COPY_STRUCT - Copy Fields with matching Tag names from one structure to another
 CREATE_STRUCT - Create an IDL structure from a list of tag types and dimensions
 MRD_STRUCT() - Like CREATE_STRUCT but tag values can be specified in a string
-N_STRUCT() - Return number of elements in a structure array and number of tags
 PRINT_STRUCT - Print specified tags from structure (to LUN if given)
-SIZE_STRUCT() - Obtain the size in bytes of an IDL structure definition
 TAG_EXIST() - Determine if a tag exists in a given structure
 WHERE_TAG() - Like WHERE but works on a structure tag names
 
-----------------------------------------------------------------------------
-STSDAS (Binary) Table I/O    in pro/sdas_table
-____________
-------------
-TAB_ADDCOL  - Add a new column to a STSDAS table
-TAB_COL - Extract column info from a table control block.  Called by TAB_READ
-TAB_CREATE - Create an empty STSDAS table on disk
-TAB_DEL  - Delete specified row(s) from an STSDAS table
-TAB_EXPAND - Expand the size of an STSDAS table.  Called by TABLE_APPEND
-TAB_FORTOSPP - Convert a FORTRAN print format to SPP. Called by TAB_MODCOL
-TAB_MODCOL - Modify a column name, format or units in an STSDAS table.
-TAB_NULL() - Locate null values in a STSDAS table.  Called by TAB_PUT
-TAB_NULLROW - Place null values into a STSDAS table.  Called by TAB_PUT
-TAB_PRINT - Print the contents of an STSDAS table in tabular form
-TAB_PUT - Put new values into a column of an STSDAS table
-TAB_READ - Read table control block and data array from a disk STSDAS table. 
-TAB_SIZE - Return the size of a STSDAS table.  Called by TABLE_LIST
-TAB_SORT - Sort a STSDAS table according to the specified column
-TAB_SPPTOFOR - Convert SPP print format to FORTRAN.  Called by TAB_PRINT
-TAB_VAL() - Extract values from a single column of an STSDAS table
-TAB_WRITE - Write a STSDAS table to a disk file
-TABLE_APPEND - Append a list of STSDAS tables to create a single table.
-TABLE_CALC - Add a new table column from an expression using existing columns.
-TABLE_DELETE - Delete specified rows from an STSDAS table
-TABLE_EXT - Extract column(s) of data from an STSDAS table to IDL variable(s)
-TABLE_HELP  - Describe an STSDAS table.
-TABLE_LIST  - List the contents of an STSDAS table
-TABLE_PRINT - Print a disk STSDAS table in tabular form
-TABLE_SORT  - Order the contents of an STSDAS table by the specified column
 ----------------------------------------------------------------------------
 Web Socket Procedures                    in pro/sockets                   
 ___________
 -----------
 WEBGET() - Use the IDL SOCKET procedure to get data from http servers
-QUERYGSC() - Query the Guide Star Catalog (GSC V2.2) at STScI by position  
+QUERYGSC() - Query the Guide Star Catalog (GSC V2.3.2) at STScI by position  
 QUERYDSS - Query the digital sky survey (DSS) online at the ESO or STSCI servers
 QUERYSIMBAD - Query the SIMBAD or NED name resolver to obtain J2000 coordinates
-QUERYUSNO() - Query the USNO-A2.0 Catalog at the ESO/ST-ECF Archive by position
 QUERYVIZIER() - Positional query of any catalog in the VIZIER database.
 
 ----------------------------------------------------------------------------
@@ -546,6 +520,7 @@ FINDPRO - Find all occurrences of a procedure in one's !PATH
 FIND_ALL_DIR - Find all directories under a specified directory
 FIND_WITH_DEF - Search for files with default path and extension
 FORPRINT -Print a set of vectors by looping over each index value
+GET_PIPE_FILESIZE - Determine the number of bytes in a unit opened as a pipe with SPAWN
 GETOPT() -  Parse a user supplied string into numeric value(s).
 GETPRO -  Search !PATH directory for a procedure and copy into user's directory
 GETTOK() -  Extract a string up to a specified character.
@@ -553,25 +528,23 @@ GETWRD() -  Get specified item (word) from a string (in /jhuapl)
 HGREP - Find a substring in a FITS header or other string array
 HOST_TO_IEEE - Convert IDL variable from host machine bit order to IEEE
 HPRINT -  Pretty terminal display of a FITS header (or other string array)
-IDL_VALIDNAME - Emulate intrinsic IDL_VALIDNAME() function for V5.6 and earlier
 IEEE_TO_HOST - Convert IDL variable from IEEE bit order to host machine
 ISARRAY() - Determine if an IDL variable is an array (in /jhuapl)
 IS_IEEE_BIG() - Determine if the host machine is IEEE big endian 
 LIST_WITH_PATH() - Search for files within specified directory path
 MAKE_2D - Change from 1-D indexing to 2-D indexing
 MATCH -   Find the subscripts where the values of two vectors match.
+MATCH2 -  Find the matches for each element of two arrays.
 MRD_SKIP - Skip a number of bytes from current location in a file or a Unix pipe
 MINMAX() -  Return the min and max of an array in an 2 element vector
 N_BYTES() - Return the number of bytes in an IDL variable
 NINT() - Like intrinsic ROUND() function but returns integer instead of long
 NULLTRIM() -Delete all characters after, and including, the the first null
           byte(0).  Called by TAB_PUT.
-NUMLINES() - Return the number of lines in a file
 ONE_ARROW - Draw an arrow labeled with a single character
 ONE_RAY - Draw a ray by specifying starting point, angle, and length
 ORDINAL() - Return the English equivalent of ordinal numbers, i.e. '1st','2nd'
 POLREC - Convert from polar to rectangular coordinates (in /jhuapl)
-PRODUCT() - Return the product of all the elements of an array.
 QGET_STRING() - Read a string (eg. password) from the keyboard without echoing it
 RDFLOAT - Quickly read an ASCII file with columns of data into IDL vectors
 READCOL - Read a file of free-format  ASCII columns into IDL vectors
@@ -583,11 +556,10 @@ REM_DUP() - Remove duplicate values from a vector.
 REMOVE -  Contract a vector or up to 8 vectors by removing specified elements
 REPCHR() -  Replace all occurrences of one character by another (in /jhuapl)
 REPSTR() -  Replace all occurrences of one substring in a string by another.
-SCREEN_SELECT - Allow user to interactively select from a list of strings
-SELECT_O - VT100 terminal branch of SCREEN_SELECT
-SELECT_W - IDL widget branch of SCREEN_SELECT.
+SELECT_W - Allow user to interactively select from a list of strings
 SPEC_DIR() - Complete specification of a file name using default disk & directory
 STORE_ARRAY - Insert one array into another, adjusting dimensions if necessary
+STRCOMPRESS2() - Remove blanks around specified spaces in a string
 STRN() - Convert a number to a string and remove padded blanks.
 STRNUMBER()- Determine whether a string is a valid numeric value.
 TEXTOPEN - Open a file for text output as specified by TEXTOUT keyword
@@ -595,6 +567,6 @@ TEXTCLOSE - Close a file that had been opened by TEXTOPEN.
 TO_HEX()    - Translate a decimal integer to a hex string.
 VALID_NUM() - Determine if a string is a valid number (cf. STRNUMBER)
 VECT() - Display a set of numbers to a string with delimiters
-WHERENAN() - Find points equal to IEEE NaN (not a number) values
+WHERENAN() - Find points equal to big-endian IEEE NaN (not a number) values
 XDISPSTR - Widget display of a string array with a simple search facility
 ZPARCHECK - Check the type and size of a parameter

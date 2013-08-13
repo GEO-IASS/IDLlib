@@ -1,4 +1,4 @@
-Miscellaneous Procedures                      pro/misc         Sep 2006
+Miscellaneous Procedures                      pro/misc         July 2009
 
 The procedures in this directory are general utility procedures that do not
 involve astronomy.   They are included here either because they are required
@@ -6,7 +6,7 @@ by an astronomy-related procedure, or because they are thought to be of
 sufficient general interest.
 
 The procedure ASTROLIB defines the non-standard system variables !TEXTOUT,
-!TEXTUNIT and !DEBUG which some Astronomy Library procedures require to be 
+!TEXTUNIT and !PRIV which some Astronomy Library procedures require to be 
 defined before they can compile.
 
 
@@ -42,25 +42,23 @@ GETWRD() -  Get specified item (word) from a string (in /jhuapl)
 HGREP -  Find a substring in a FITS header (or any other string array)
 HOST_TO_IEEE - Convert IDL variable from host machine bit order to IEEE
 HPRINT -  Pretty terminal display of a FITS header (or other string array)
-IDL_VALIDNAME() - Emulate intrinsic IDL_VALIDNAME() function for V5.6 and earlier
 IEEE_TO_HOST - Convert IDL variable from IEEE bit order to host machine
 ISARRAY() - Determine if an IDL variable is an array (in /jhuapl)
 IS_IEEE_BIG() - Determine if the host machine is IEEE big endian 
 LIST_WITH_PATH() - Search for files within specified directory path
 MAKE_2D - Change from 1-D indexing to 2-D indexing
 MATCH -   Find the subscripts where the values of two vectors match.
+MATCH2 -   Find the matches for each element of two arrays.
 MINMAX() -  Return the min and max of an array in an 2 element vector
 MRD_SKIP - Skip a number of bytes from current location in a file or Unix pipe
 N_BYTES() - Return the number of bytes in an IDL variable
 NINT() - Like intrinsic ROUND() function but returns integer instead of long
 NULLTRIM() -Delete all characters after, and including, the the first null
           byte(0).  Called by TAB_PUT.
-NUMLINES() - Return the number of lines in a file
 ONE_ARROW - Draw an arrow labeled with a single character
 ONE_RAY - Draw a ray by specifying starting point, angle, and length
 ORDINAL() - Return the English equivalent of ordinal numbers, i.e. '1st','2nd'
 POLREC - Convert from polar to rectangular coordinates (in /jhuapl)
-PRODUCT() - Return the product of all the elements of an array.
 QGET_STRING() - Read a string (eg. password) from the keyboard without echoing it
 RDFLOAT - Quickly read an ASCII file with columns of data into IDL vectors
 READ_KEY() - Like GET_KBRD but returns a code for escape sequences.
@@ -73,13 +71,11 @@ REMOVE -  Contract a vector or up to 8 vectors by removing specified
           elements.
 REPCHR() -  Replace all occurrences of one character by another (in /jhuapl)
 REPSTR() -  Replace all occurrences of one substring in a string by another.
-SCREEN_SELECT - Allow user to interactively select from a list of strings
-                Used by the database software
-SELECT_O - VT100 terminal branch of SCREEN_SELECT
-SELECT_W - IDL widget branch of SCREEN_SELECT.
+SELECT_W - Allow user to interactively select from a list of strings
 SPEC_DIR() - Complete specification of a file name using default disk & directory
 STORE_ARRAY - Insert one array into another, adjusting dimensions if necessary
 STR_INDEX - Get all indicies of a substring within a string
+STRCOMPRESS2() - Remove blanks around specified spaces in a string
 STRN() - Convert a number to a string and remove padded blanks.
 STRNUMBER()- Determine whether a string is a valid numeric value.
 TEXTOPEN - Open a file for text output as specified by !TEXTOUT
@@ -89,6 +85,6 @@ TO_HEX()    - Translate a decimal integer to a hex string.  Called by AIPSNAME.
 
 VALID_NUM() - Determine if a string is a valid number (cf. STRNUMBER)
 VECT() - Display a set of numbers to a string with delimiters
-WHERENAN() - Find points equal to IEEE NaN (not a number) values
+WHERENAN() - Find points equal to big-endian IEEE NaN (not a number) values
 XDISPSTR - Display a string array in a widget a with simple search capability
 ZPARCHECK - Check the type and size of a parameter

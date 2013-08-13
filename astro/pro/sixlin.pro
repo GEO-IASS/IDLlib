@@ -53,8 +53,7 @@ pro sixlin,xx,yy,a,siga,b,sigb,weight=weight
 ; REVISION HISTORY:
 ;       Written   Wayne Landsman          February, 1991         
 ;       Corrected sigma calculations      February, 1992
-;       Converted to IDL V5.0   W. Landsman   September 1997
-;       Added WEIGHT keyword   J. Moustakas   Februrary 2007
+;       Added WEIGHT keyword   J. Moustakas   February 2007
 ;-
  compile_opt idl2
  On_error, 2                                   ;Return to Caller

@@ -63,7 +63,7 @@
 ;          useful and may be accessed read-only:
 ;              TSTART/TSTOP (start and stop time of data in Julian
 ;                            days);
-;              C (speed of light in km/s);
+;              C (speed of light in m/s);
 ;              DENUM (development ephemeris number [200 or 405])
 ;              AU (1 astronomical unit, in units of light-seconds)
 ;
@@ -95,7 +95,7 @@
 ;   Find position of earth at ephemeris time 2451544.5 JD.  Units are
 ;   in Astronomical Units.
 ;
-;   JPLEPHREAD, 'JPLEPH.200', pinfo, pdata, [2451544D, 2451545D]
+;   JPLEPHREAD, 'JPLEPH.405', pinfo, pdata, [2451544D, 2451545D]
 ;
 ;   JPLEPHINTERP, pinfo, pdata, 2451544.5D, xearth, yearth, zearth, $
 ;                 /EARTH, posunits='AU'
@@ -107,10 +107,10 @@
 ;      ftp://heasarc.gsfc.nasa.gov/xte/calib_data/clock/bary/
 ;
 ;   HORIZONS, JPL Web-based ephermis calculator (Ephemeris DE406)
-;      http://ssd.jpl.nasa.gov/horizons.html
+;      http://ssd.jpl.nasa.gov/?horizons
 ;   
 ;   JPL Export Ephemeris FTP Site
-;      ftp://navigator.jpl.nasa.gov/pub/ephem/export/
+;      ftp://ssd.jpl.nasa.gov/pub/eph/planets/
 ;      (ephemeris files are available here, however, they must be
 ;      converted to FITS format using the "bin2eph" utility found in
 ;      AXBARY)
@@ -134,8 +134,10 @@
 ; MODIFICATION HISTORY:
 ;   Written and Documented, CM, Jun 2001
 ;   Use GETTOK() instead of STR_SEP()  W. Landsman  July 2002
-;
-;  $Id: jplephread.pro,v 1.6 2001/07/01 03:32:02 craigm Exp $
+;   Add ephemeris file keywords to INFO, Jan 2002, CM
+;   Add fields to INFO to be consistent with JPLEPHMAKE, 04 Mar 2002, CM
+;   Correction of units for INFO.C (Thanks Mike Bernhardt), 2011-04-11, CM 
+;  $Id: jplephread.pro,v 1.10 2011/06/27 18:44:44 cmarkwar Exp $
 ;
 ;-
 ; Copyright (C) 2001, Craig Markwardt
@@ -249,11 +251,14 @@ pro jplephread, filename, info, raw, jdlimits, $
 
       jdlimits1 = (rowlimits+[-1,0])*timedel + tstart
 
-      info = {nrows: nrows, tstart: tstart, tstop: tstop, $
+      info = {filename: filename, edited: 0L, $
+              creation_date: '', author: '', $
+              nrows: nrows, tstart: tstart, tstop: tstop, $
               timedel: timedel, format: 'DENEW', $
               denum: 200L, c: c, emrat: 0.012150586D, $
               au: aultsc, msol: rschw, sunrad: sunrad, $
               jdlimits: jdlimits1, jdrows: nr }
+
 
   endif else if (extname EQ 'DE1' AND ttype1 EQ 'Cname') then begin
       ;; This is the BINEPH2FITS format (either DE200 or DE405)
@@ -270,9 +275,9 @@ pro jplephread, filename, info, raw, jdlimits, $
       denum  = round(jplephval(cname, cvalue, 'DENUM', /fatal))
       clight = jplephval(cname, cvalue, 'CLIGHT', /fatal)
       emrat  = jplephval(cname, cvalue, 'EMRAT',  /fatal)
-      au     = jplephval(cname, cvalue, 'AU',     /fatal)
-      msol   = jplephval(cname, cvalue, 'GMS',    /fatal)
-      radsol = jplephval(cname, cvalue, 'RADS', default=-1D)
+      au     = jplephval(cname, cvalue, 'AU',     /fatal)    ; km
+      msol   = jplephval(cname, cvalue, 'GMS',    /fatal)    ; AU^3/day^2
+      radsol = jplephval(cname, cvalue, 'RADS', default=-1D) ; km
       if radsol EQ -1D then $
         radsol = jplephval(cname, cvalue, 'ASUN', default=-1D)
 
@@ -283,8 +288,8 @@ pro jplephread, filename, info, raw, jdlimits, $
           fxbclose, unit
           return
       endif
-
-      x = au / clight
+ 
+      x = au / clight                     ;; AU (lt sec)     
       msol = msol * x * x * x / 86400D^2  ;; GM_sun (in lt sec)
       radsol = radsol / clight            ;; Solar radius (lt sec)
       clight = clight * 1000              ;; Speed of light (m/s)
@@ -376,13 +381,15 @@ pro jplephread, filename, info, raw, jdlimits, $
       endif
 
       nr = rowlimits[1]-rowlimits[0]+1
-      info = {nrows: nrows, tstart: tstart, tstop: tstop, $
+     info = {filename: filename, edited: 0L, $
+              creation_date: '', author: '', $
+              nrows: nrows, tstart: tstart, tstop: tstop, $
               timedel: timedel, format: 'BINEPH2FITS', $
               denum: denum, c: clight, emrat: emrat, $
               au: au*1000/clight, msol: msol, sunrad: radsol, $
               jdlimits: jdlimits1, jdrows: nr, $
               objname: ephobj, ptr: ephptr, ncoeff: ephncoeff, $
-              nsub: ephnsub}
+              nsub: ephnsub, keywords: cname, keyvalues: cvalue}
 ;                 aufac: 1D/clight, velfac: 2D/(timedel*86400D), $
 
   endif else begin

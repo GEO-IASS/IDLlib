@@ -12,7 +12,8 @@ pro RDPLOT, x, y, WaitFlag, DATA=Data, DEVICE=Device, NORMAL=Normal, $
    NOWAIT=NoWait, WAIT=Wait, DOWN=Down, CHANGE=Change, Err=Err, $
    PRINT=Print, XTITLE=XTitle,YTITLE=YTitle, XVALUES=XValues,YVALUES=YValues, $
    FULLCURSOR=FullCursor, NOCLIP=NoClip, LINESTYLE=Linestyle, THICK=Thick, $
-   COLOR=Color, BACKGROUND=BackGround, CROSS=Cross, ACCUMULATE=Accumulate
+   COLOR=Color, BACKGROUND=BackGround, CROSS=Cross, ACCUMULATE=Accumulate, $
+   CURSOR_STANDARD=cursor_standard
    
 ;*******************************************************************************
 ;+
@@ -37,7 +38,7 @@ pro RDPLOT, x, y, WaitFlag, DATA=Data, DEVICE=Device, NORMAL=Normal, $
 ;      [, /NOWAIT | /WAIT | /DOWN | /CHANGE] 
 ;      [, /FULLCURSOR] [, /NOCLIP] [, /CROSS] [, /ACCUMULATE]
 ;      [, ERR=, PRINT=, XTITLE=, YTITLE=, XVALUES=, YVALUES=
-;       , LINESTYLE=, THICK=, COLOR=, BACKGROUND=]
+;       , LINESTYLE=, THICK=, COLOR=, BACKGROUND=, CURSOR_STANDARD=]
 ;
 ; REQUIRED INPUTS:
 ;   None.
@@ -95,10 +96,18 @@ pro RDPLOT, x, y, WaitFlag, DATA=Data, DEVICE=Device, NORMAL=Normal, $
 ;   COLOR = color of the full-screen cursor.
 ;   BACKGROUND = color of the background of the plot device.  If this has
 ;      been set to !P.BackGround, then this keyword is unnecessary.
-;   CROSS = if non-zero will show the regular cross AND full screen cursors.
+;   /CROSS = if non-zero will show the regular cross AND full screen cursors.
 ;   /ACCUMULATE - all of the positions for which the left button was
 ;      clicked are stored in the X and Y variables.  Has no effect if X and Y 
 ;      are not present.
+;   CURSOR_STANDARD = this keyword can be used to select the cursor
+;      appearance if /CROSS is set and will set the cursor to this value
+;      when the full-screen cursor is turned off if /FULLCURSOR has been
+;      set. See IDL help for the DEVICE keyword CURSOR_STANDARD to see
+;      possible cursors for X Windows and MS Windows.  The default
+;      behavior, if this keyword is not set, is to set the cursor to the
+;      window system's default cursor, which might not be the user's
+;      preferred cursor.
 ;
 ; OPTIONAL KEYWORD OUTPUT PARAMETER:
 ;   ERR = returns the most recent value of the !mouse.button value.
@@ -106,14 +115,18 @@ pro RDPLOT, x, y, WaitFlag, DATA=Data, DEVICE=Device, NORMAL=Normal, $
 ; NOTES:
 ;   Note that this procedure does not allow the "UP" keyword/flag...which 
 ;   doesn't seem to work too well in the origianl CURSOR version anyway.
+;   Note: this might have been the case back in the day, but Robishaw
+;   hasn't experienced any problems with CURSOR, /UP in the last 10
+;   years.  Even so, it would be somewhat tricky to implement the /UP
+;   behavior in this routine, which explains why it's still missing.
 ;
-;   If a data coordinate system has not been established, then RDPLOT will
-;   create one identical to the device coordinate system.   Note that this
-;   kluge is required even if the user specified /NORMAL coordinates, since
-;   RDPLOT makes use of the OPLOT procedure.  This new data coordinate system
-;   is effectively "erased" (!X.CRange and !Y.CRange are both set to zero)
-;   upon exit of the routine so as to not change the plot status from the
-;   user's point of view.
+;   If a data coordinate system has not been established, then RDPLOT
+;   will create one identical to the device coordinate system.  Note that
+;   this kluge is required even if the user specified /NORMAL coordinates,
+;   since RDPLOT makes use of the OPLOT procedure.  This new data
+;   coordinate system is effectively "erased" (!X.CRange and !Y.CRange are
+;   both set to zero) upon exit of the routine so as to not change the plot
+;   status from the user's point of view.
 ;
 ;   Only tested on X-windows systems.  If this program is interrupted, the
 ;   graphics function might be left in a non-standard state; in that case,
@@ -125,21 +138,7 @@ pro RDPLOT, x, y, WaitFlag, DATA=Data, DEVICE=Device, NORMAL=Normal, $
 ;   click is returned unless the cursor did not change position between the
 ;   last left-click and the exit click.
 ;
-; BUGS:
-;   NOTE: (1/27/05) The bugs below have been fixed by Robishaw and tested
-;   on Solaris, Linux and OS-X.
 ;
-;   It is assumed that the current background of the plot is correctly
-;   defined by the value in !P.Background.  Otherwise, the color of the
-;   long cursor probably will not be correct.  Sometimes the color doesn't
-;   work anyway, and I'm not sure why.
-;   NOTE: Robishaw fixed this 1/27/05.
-;
-;   There may be some cases (e.g., when THICK>1 and NOCLIP=0) when the
-;   full-screen cursor is not correctly erased, leaving "ghost images" on the
-;   plot.  It just seems that the screen updates get slow or the positions
-;   ambiguous with a thick line and the cursor off the plot.
-;   NOTE: Robishaw fixed this 1/27/05.
 ;
 ; PROCEDURE:
 ;   Basically is a bells-n-whistles version of the CURSOR procedure.  All
@@ -150,7 +149,8 @@ pro RDPLOT, x, y, WaitFlag, DATA=Data, DEVICE=Device, NORMAL=Normal, $
 ;   Months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', $
 ;             'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 ;   plot, indgen(12), xrange=[-5, 15]
-;   rdplot, /FULL, /PRINT, XTITLE='Month: ', YTITLE='Y-value per month = ', $
+;   rdplot, /FULL, /PRINT, $
+;      XTITLE='Month: ', YTITLE='Y-value per month = ', $
 ;      xvalues=Months
 ;
 ;   If your plot has a non-black background color, be sure to set either
@@ -206,6 +206,15 @@ pro RDPLOT, x, y, WaitFlag, DATA=Data, DEVICE=Device, NORMAL=Normal, $
 ;      DirectColor.  Also made the default cursor color white when
 ;      decomposition is on (this has been its default value for
 ;      decomposition off). T. Robishaw 2006 Nov 16
+;   Fixed misbehavior when /FULLCURSOR not set; was checking for
+;      non-existent variable VisualName. T. Robishaw 2007 Jul 01
+;   Added the CURSOR_STANDARD keyword because I hate how this routine
+;      changes my default cursor. Also, it was crashing when /FULL not set:
+;      small fix, now works. T. Robishaw  2007 Jul 03
+;   Fixed bug where moving mouse with button pressed or releasing button
+;      would return values even if DOWN was set. The checks for this were
+;      only being done if PRINT was set also. T.V. Wenger 2013 May 14
+;   Fix problem exiting when X,Y not supplied W. Landsman June 2013
 ;-
 ;*******************************************************************************
 On_error,2
@@ -418,7 +427,7 @@ if FullCursor then begin
 ;       by Color and BackGround and convert them to 24-bit decomposed color
 ;       indices.  Then we turn on color decomposition.  Before we exit, we
 ;       turn it back off.  For DirectColor, we just need to XOR the 8-bit
-;       color table indices.
+;       color table indices. -Robishaw
 ;
 
    ; CHECK FOR THE VISUAL CLASS AND COLOR DECOMPOSITION STATE...
@@ -531,9 +540,9 @@ repeat begin    ; here we go!
       if (!mouse.button eq 1) and $
          not(Down or Wait or Change or NoWait) then begin ;  new line?
          print, format='($,%"\n")'
-         NClicks = NClicks + 1l
+         NClicks++
          if Arg_Present(y) then begin
-            if keyword_set(ACCUMULATE) and (NClicks gt 1) then begin
+            if keyword_set(ACCUMULATE) && (NClicks gt 1) then begin
                xout = [xout,x]
                yout = [yout,y]
             endif else begin
@@ -542,17 +551,17 @@ repeat begin    ; here we go!
             endelse
          endif
       endif
+   endif
 
-      ; If button is held down, don't continue until button is released...
-      if ( (!mouse.button eq 1) and not(Wait or Change or NoWait) ) $
-         ; if entered with a button down, wait for next down click before
-         ; returning...
-         or ( (!mouse.button gt 1) and Down) then begin
-         while (!mouse.button gt 0) do begin
-            wait, 0.1
-            cursor, XX, YY, /NOWAIT
-         endwhile
-      endif
+   ; If button is held down, don't continue until button is released...
+   if ( (!mouse.button eq 1) and not(Wait or Change or NoWait) ) $
+      ; if entered with a button down, wait for next down click before
+      ; returning...
+      or ( (!mouse.button gt 1) and Down) then begin
+      while (!mouse.button gt 0) do begin
+         wait, 0.1
+         cursor, XX, YY, /NOWAIT
+      endwhile
    endif
 
    ;Err0 = Err0 < !mouse.button
@@ -575,7 +584,7 @@ repeat begin    ; here we go!
                 ; if /CHANGE is set and *any* button is pressed...
                 ( Change AND (NClicks gt 0) )
 
-   if not(InstantOut) then begin
+   if ~(InstantOut) then begin
       cursor, XX, YY, /NOWAIT, DATA=Data, DEVICE=Device, NORMAL=Normal
       if ((XX eq X) and (YY eq Y)) then $
          cursor, XX, YY, /CHANGE, DATA=Data, DEVICE=Device, NORMAL=Normal
@@ -596,7 +605,7 @@ repeat begin    ; here we go!
    if Change AND (NClicks eq 0) then begin
       XOut = X
       YOut = Y
-      NClicks = NClicks + 1
+      NClicks++
       ExitFlag = 0
       continue
    endif
@@ -606,24 +615,27 @@ repeat begin    ; here we go!
    ExitFlag = (Down AND (Err gt 0)) OR (Err gt 1) OR InstantOut
 
 endrep until ExitFlag
-
 ;;;
 ; If exit click was at a position different from last left-click, then add
 ; this to the list of positions...
 ;
 if (NClicks gt 0) then begin
    last_left_click = keyword_set(ACCUMULATE) ? NClicks-1 : 0
-   if not((X eq XOut[last_left_click]) and $
+   if N_elements(Xout) Gt 0 THEN $
+   if ~((X eq XOut[last_left_click]) and $
           (Y eq YOut[last_left_click])) then begin
       XOut = [XOut,X]
       YOut = [YOut,Y]
-   endif
+   endif ELSE BEGIN
+      Xout = x
+      YOut = y
+   endELSE   
 endif else begin
    XOut = X
    YOut = Y
 endelse
 
-if (Print gt 0) then print
+if (Print gt 0) then print ; clear the last printed line
 
 ;LABEL_DONE:
 
@@ -631,10 +643,15 @@ if (Print gt 0) then print
 ;  Done!  Go back to the default Graphics and cursor in case they were changed.
 ;  Also erase the plot ranges if they originally were not defined.
 ;
-if FullCursor then device,/CURSOR_CROSSHAIR,SET_GRAPHICS=OldGraphics,Bypass=0
+if FullCursor then begin
+   if (N_elements(CURSOR_STANDARD) eq 0) $
+      then device,/CURSOR_CROSSHAIR,SET_GRAPHICS=OldGraphics,Bypass=0 $
+      else device,CURSOR_STANDARD=cursor_standard,SET_GRAPHICS=OldGraphics,$
+                  Bypass=0
 
-; If the color decomposition was off when we started, shut it off again...
-if (VisualName eq 'TrueColor') and not(Decomposed) then device, Decomposed=0
+   ; If the color decomposition was off when we started, shut it off again...
+   if (VisualName eq 'TrueColor') && ~Decomposed then device, Decomposed=0
+endif
 
 if UndefinedPlot then begin
    !X.CRange = 0
@@ -647,5 +664,4 @@ if keyword_set(ACCUMULATE) and Arg_Present(Y) then begin
    X = temporary(XOut)
    Y = temporary(YOut)
 endif
-
 end   ;   RDPLOT

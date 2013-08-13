@@ -63,7 +63,6 @@ pro irafwrt, image, hd, filename, PIXDIR = pixdir
 ;       Fix case where a minimal FITS header supplied          August 1995
 ;       Work under Alpha/OSF and Linux                         Dec.   1995
 ;       Make sureheader has 80 char lines, use IS_IEEE_BIG()   May    1997
-;       Converted to IDL V5.0   W. Landsman   September 1997
 ;       Don't apply strlowcase to .pix name   W. Landsman      April 1999
 ;       Work with double precision            W. Landsman      May 1999
 ;       Minimize use of obsolete !ERR         W. Landsman      Feb. 2000
@@ -177,8 +176,7 @@ pro irafwrt, image, hd, filename, PIXDIR = pixdir
 
      host = getenv('HOST')
     dir  =  dir + path_sep()
-  endelse
-
+ 
   if keyword_set(pixdir) then dir = pixdir
   pixname = host+'!' + dir + fname + '.pix'
   len1 = strlen(pixname)

@@ -1,5 +1,6 @@
-pro ftab_ext,file_or_fcb,columns,v1,v2,v3,v4,v5,v6,v7,v8,v9,ROWS=rows, $
-        EXTEN_NO = exten_no
+pro ftab_ext,file_or_fcb,columns,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12, $
+    v13,v14,v15,v16,v17,v18,v19,v20, v21,v22,v23,v24,v25,v26,v27,v28,v29,v30, $
+        ROWS=rows,EXTEN_NO = exten_no
 ;+
 ; NAME:
 ;       FTAB_EXT
@@ -20,7 +21,7 @@ pro ftab_ext,file_or_fcb,columns,v1,v2,v3,v4,v5,v6,v7,v8,v9,ROWS=rows, $
 ;               (2) Scalar or vector of column numbers
 ;
 ; OUTPUTS:
-;       v1,...,v9 - values for the columns.   Up to 9 columns can be extracted
+;       v1,...,v30 - values for the columns.   Up to 30 columns can be extracted
 ;
 ; OPTIONAL INPUT KEYWORDS:
 ;       ROWS -  scalar or vector giving row number(s) to extract
@@ -50,19 +51,21 @@ pro ftab_ext,file_or_fcb,columns,v1,v2,v3,v4,v5,v6,v7,v8,v9,ROWS=rows, $
 ;       Use STRSPLIT to parse column string  W. Landsman July 2002 
 ;       Cleanup pointers in TBINFO structure  W. Landsman November 2003
 ;       Avoid EXECUTE() if V6.1 or later  W. Landsamn   December 2006
+;       Assume since V6.1  W. Landsman   June 2009
+;       Read up to 30 columns  W.L. Aug 2009
 ;-
 ;---------------------------------------------------------------------
  compile_opt idl2
  if N_params() LT 3 then begin
-        print,'Syntax - FTAB_EXT, name, columns, v1, [v2,...,v9, ROWS=, EXTEN=]'
+        print,'Syntax - FTAB_EXT, name, columns, v1, [v2,...,v30, ROWS=, EXTEN=]'
         return
  endif
  N_ext = N_params() - 2
  strng = size(columns,/TNAME) EQ 'STRING'    ;Is columns a string?
 
  if not keyword_set(exten_no) then exten_no = 1
- sz = size(file_or_fcb)
- if sz[sz[0]+1] NE 8 then fits_open,file_or_fcb,fcb else fcb=file_or_fcb
+ dtype = size(file_or_fcb,/TNAME)
+ if dtype NE 'STRUCT' then fits_open,file_or_fcb,fcb else fcb=file_or_fcb
  if fcb.nextend EQ 0 then $
         message,'ERROR - FITS file contains no table extensions'
  if fcb.nextend LT exten_no then $
@@ -81,7 +84,7 @@ pro ftab_ext,file_or_fcb,columns,v1,v2,v3,v4,v5,v6,v7,v8,v9,ROWS=rows, $
         fits_read, fcb, tab, htab, exten_no=exten_no,/no_pdu 
         xrow = -1
  endelse
- if sz[sz[0]+1] NE 8 then fits_close,fcb else $
+ if dtype NE 'STRUCT' then fits_close,fcb else $
          file_or_fcb.last_extension = exten_no
  ext_type = fcb.xtension[exten_no]
 
@@ -100,20 +103,12 @@ pro ftab_ext,file_or_fcb,columns,v1,v2,v3,v4,v5,v6,v7,v8,v9,ROWS=rows, $
 
   vv = 'v' + strtrim( indgen(n_ext)+1,2)
   for i = 0, N_ext-1 do begin 
-     if !VERSION.RELEASE GE '6.1' then begin
-
+  
          if binary then $
          (scope_varfetch(vv[i]))  = TBGET( tb_str,tab,colnames[i],xrow,nulls) $
         else $
           (scope_varfetch(vv[i])) = FTGET( ft_str,tab,colnames[i],xrow,nulls)
-      endif else begin 	  
-         if binary then $
-                v = TBGET( tb_str,tab,colnames[i],xrow,nulls) $
-        else $
-                v = FTGET( ft_str,tab,colnames[i],xrow,nulls)
-         istat = execute( vv[i] + '=v' )
-endelse	
-        endfor
+ endfor
  if binary then begin
         ptr_free, tb_str.tscal
         ptr_free, tb_str.tzero

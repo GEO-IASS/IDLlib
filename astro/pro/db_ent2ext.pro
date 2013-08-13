@@ -26,13 +26,15 @@
 ;	Version 2, William Thompson, GSFC/CDS (ARC), 15 September 1995
 ;			Fixed bug where only the first element in a
 ;			multidimensional array was converted.
-;	Converted to IDL V5.0   W. Landsman   September 1997
+;       Version 2.1 W. Landsman August 2010 Fix for multidimensional strings
+;       Version 2.2 W. Landsman Sep 2011 Work with new DB format
 ;-
 ;
-	ON_ERROR,1
+	ON_ERROR,2
+        COMPILE_OPT IDL2
 ;
 ;
-; QDB(*,i) contains the following for each data base opened
+; QDB[*,i] contains the following for each data base opened
 ;
 ;	bytes
 ;	  0-18   data base name character*19
@@ -50,7 +52,7 @@
 ;	  104	 Update flag (0 open for read only, 1 open for update)
 ;	  119	 True if database is in external (IEEE) data format
 ;
-;  QITEMS(*,i) contains decription of item number i with following
+;  QITEMS[*,i] contains description of item number i with following
 ;  byte assignments:
 ;
 ;	0-19	item name (character*20)
@@ -70,7 +72,7 @@
 ;	175-176 Data base number this item points to
 ;
 ;
-; QLINK(i) contains the entry number in the second data base
+; QLINK[i] contains the entry number in the second data base
 ;	corresponding to entry i in the first data base.
 ;
 	COMMON DB_COM,QDB,QITEMS,QLINK
@@ -94,17 +96,25 @@
 ;
 ;  Extract information about the individual items.
 ;
+         newdb = qdb[118, 0]
+        
 	IDLTYPE = FIX(QITEMS[20:21,*],0,N_ITEMS)
-	NVALUES = FIX(QITEMS[22:23,*],0,N_ITEMS)
-	SBYTE	= FIX(QITEMS[24:25,*],0,N_ITEMS)
-	NBYTES	= FIX(QITEMS[26:27,*],0,N_ITEMS)
+	NVALUES = NEWDB ? LONG(QITEMS[179:182,*],0,N_ITEMS) : $
+	                  FIX(QITEMS[22:23,*],0,N_ITEMS)
+	SBYTE	= NEWDB ? LONG(QITEMS[183:186,*],0,N_ITEMS) : $
+	                  FIX(QITEMS[24:25,*],0,N_ITEMS)
+	NBYTES	= FIX(QITEMS[26:27,*],0,N_ITEMS)*NVALUES
+        BSWAP =  (IDLTYPE NE 7) AND (IDLTYPE NE 1)
 ;
 ;  For each entry, convert the data into external format.
 ;
-	FOR I = 0, N_ITEMS-1 DO BEGIN
+	FOR I = 0, N_ITEMS-1 DO BEGIN	      
+	    IF BSWAP[I] THEN BEGIN
+	    
 		ITEM = DBXVAL(ENTRY,IDLTYPE[I],NVALUES[I],SBYTE[I],NBYTES[I])
-		HOST_TO_IEEE, ITEM
-		DBXPUT, ITEM, ENTRY, IDLTYPE[I], SBYTE[I], NBYTES[I]*NVALUES[I]
+		SWAP_ENDIAN_INPLACE, ITEM, /SWAP_IF_LITTLE
+		DBXPUT, ITEM, ENTRY, IDLTYPE[I], SBYTE[I], NBYTES[I]
+	    ENDIF	
 	ENDFOR
 ;
 	RETURN

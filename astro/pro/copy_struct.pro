@@ -4,7 +4,7 @@
 ; PURPOSE:
 ; 	Copy all fields with matching tag names from one structure to another
 ; EXPLANATION:
-;       COPY_STRUCT is similar to the intrinisc STRUCT_ASSIGN procedure but 
+;       COPY_STRUCT is similar to the intrinsic STRUCT_ASSIGN procedure but 
 ;       has optional keywords to exclude or specify specific tags.
 ;  
 ;	Fields with matching tag names are copied from one structure array to 

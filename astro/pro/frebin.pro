@@ -4,11 +4,11 @@ function frebin,image,nsout,nlout,total=total
 ;   FREBIN
 ;
 ; PURPOSE:
-;   Shrink or expand the size of an array an arbitary amount using interpolation
+;   Shrink or expand the size of an array an arbitrary amount using interpolation
 ;
 ; EXPLANATION: 
 ;   FREBIN is an alternative to CONGRID or REBIN.    Like CONGRID it
-;   allows expansion or contraction by an arbitary amount. ( REBIN requires 
+;   allows expansion or contraction by an arbitrary amount. ( REBIN requires 
 ;   integral factors of the original image size.)    Like REBIN it conserves 
 ;   flux by ensuring that each input pixel is equally represented in the output
 ;   array.       
@@ -71,6 +71,9 @@ function frebin,image,nsout,nlout,total=total
 ;    Improve speed by addressing arrays in memory order W.Landsman Dec/Jan 2001
 ;-
 ;----------------------------------------------------------------------------
+      On_error,2
+      compile_opt idl2
+
       if N_params() LT 1 then begin
            print,'Syntax = newimage = FREBIN(image, nsout, nlout, [/TOTAL])'  
            return,-1
@@ -96,9 +99,9 @@ function frebin,image,nsout,nlout,total=total
 
 ; Contraction by an integral amount 
 
-	if (nsout eq long(nsout)) and (nlout eq long(nlout)) then begin
-	if ((ns mod nsout) EQ 0) and ((nl mod nlout) EQ 0) then $
-                if (dtype EQ 'DOUBLE') or (dtype EQ 'FLOAT') then begin
+	if (nsout eq long(nsout)) && (nlout eq long(nlout)) then begin
+	if ((ns mod nsout) EQ 0) && ((nl mod nlout) EQ 0) then $
+                if (dtype EQ 'DOUBLE') || (dtype EQ 'FLOAT') then begin
  		   if keyword_set(total) then $
 		   return,rebin(image,nsout,nlout)*sbox*lbox else $
 		   return,rebin(image,nsout,nlout) 
@@ -110,7 +113,7 @@ function frebin,image,nsout,nlout,total=total
 
 
 ; Expansion by an integral amount
-	if ((nsout mod ns) EQ 0) and ((nlout mod nl) EQ 0) then begin
+	if ((nsout mod ns) EQ 0) && ((nlout mod nl) EQ 0) then begin
                 xindex = long(lindgen(nsout)/(nsout/ns))
                 if nl EQ 1 then begin
  		if keyword_set(total) then $

@@ -103,7 +103,7 @@ pro minF_conj_grad, p_min, f_min, conv_factor, FUNC_NAME=func_name, $
                 gs_norm = grad_norm
            endelse
 
-;Now find miminum along direction of conjugate gradient:
+;Now find mininum along direction of conjugate gradient:
 
         xa = 0
         xb = 1/sqrt( gs_norm )

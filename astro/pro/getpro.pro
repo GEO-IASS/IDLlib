@@ -26,7 +26,7 @@ pro getpro,proc_name            ;Obtain a copy of a procedure
 ;
 ; PROCEDURE:
 ;      The FILE_WHICH() function is used to locate the procedure in the IDL
-;      !PATH.     When found, FILE_COPY (if V5.6 or later) or SPAWN is used to 
+;      !PATH.     When found, FILE_COPY is used to 
 ;      copy the procedure into the user's current default directory.    If not 
 ;      found in !PATH, then the ROUTINE_INFO() function is used to determine 
 ;      if it is an intrinsic IDL procedure.  
@@ -43,7 +43,7 @@ pro getpro,proc_name            ;Obtain a copy of a procedure
 ;       User must have write privilege to the current directory
 ;
 ; PROCEDURE CALLS:
-;       FDECOMP, ZPARCHECK
+;      ZPARCHECK
 ; REVISION HISTORY:
 ;      Written W. Landsman, STX Corp.   June 1990
 ;      Now use intrinsic EXPAND_PATH() command  W. Landsman November 1994
@@ -53,6 +53,8 @@ pro getpro,proc_name            ;Obtain a copy of a procedure
 ;      Use ROUTINE_INFO instead of undocumented ROUTINE_NAMES W.L. October 1998
 ;      Use FILE_WHICH() to locate procedure W. Landsman May 2006 
 ;      Assume since V5.5, remove VMS support  W. Landsman Sep 2006
+;      Assume since V6.0, use file_basename() W.Landsman Feb 2009
+;      Test for .sav file, more robust test for write privilege W.L. Jul 2010
 ;-
   On_error,2                                     ;Return to caller on error
   compile_opt idl2
@@ -64,8 +66,7 @@ pro getpro,proc_name            ;Obtain a copy of a procedure
   
   endif else zparcheck, 'getpro', proc_name, 1, 7, 0, 'Procedure name'
 
-  fdecomp, proc_name, disk, dir, name      ;Don't want file extensions
-  name = strtrim( name, 2 )  
+  name = strtrim( file_basename(proc_name,'.pro'), 2 )  
 
 ;First check if procedure is already on current directory (no overwriting)
 
@@ -74,30 +75,28 @@ pro getpro,proc_name            ;Obtain a copy of a procedure
         return
   endif 
 
-; Now make sure user has write privileges
-
-  openw, lun, 'temp.tmp', /DELETE, /GET_LUN, ERROR=ERR
-  if err NE 0 then begin               ;Problem writing a temporary file?
-     cd,current=curdir   
-     message,curdir + ' has insufficient privilege or file protection violation'
-  endif
-  free_lun,lun
-
 ;Locate file in the user's !PATH  
 
   fname = file_which(name + '.pro')
   if fname NE '' then begin           ;File found? 
 
-    if !VERSION.RELEASE GT '5.6' then $
-         file_copy,fname, name + '.pro' else begin
-         Case !VERSION.OS_FAMILY of
-         'Windows': spawn, 'copy ' + fname + '*.*'
-          else: spawn,'cp ' + fname + ' .'
-        endcase
-       endelse
-           message,'Procedure '+ NAME + '.pro copied from '+ fname,/INF
-          return
+; Now make sure user has write privileges
+        cd, current=curdir
+        if file_test(curdir,/write) NE 1 then $
+        message,curdir +  $
+	   ' has insufficient privilege or file protection violation'
+
+         file_copy,fname, name + '.pro' 
+         message,'Procedure '+ NAME + '.pro copied from '+ fname,/INF
+         return
    endif else begin
+
+; Is it a .sav file in the !PATH? 
+  fname = file_which(name + '.sav')
+  if fname NE '' then begin           ;.Sav File found? 
+      message,'File ' + fname + ' is an IDL save set',/INF
+      return
+  endif 
 
 ; Now check if it is an intrinsic IDL procedure or function.  
 

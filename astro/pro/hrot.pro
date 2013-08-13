@@ -118,13 +118,13 @@ pro hrot, oldim, oldhd, newim, newhd, angle, xc, yc, int, MISSING=missing, $
 ;                                    Check for valid 2-D image & header
  check_FITS, oldim, oldhd, dimen, /NOTYPE, ERRMSG = errmsg
   if errmsg NE '' then begin
-        if not save_err then message,'ERROR - ' + errmsg,/CON
+        if ~save_err then message,'ERROR - ' + errmsg,/CON
         return
   endif
 
   if N_elements(dimen) NE 2 then begin 
         errmsg =  'ERROR - Input image array must be 2-dimensional'
-        if not save_err then message,'ERROR - ' + errmsg,/CON
+        if ~save_err then message,'ERROR - ' + errmsg,/CON
         return
  endif
 
@@ -153,7 +153,7 @@ pro hrot, oldim, oldhd, newim, newhd, angle, xc, yc, int, MISSING=missing, $
 
  case int of 
  0: type = ' Nearest Neighbor Approximation'
- 1: type = ' Bilinear Intepolation' 
+ 1: type = ' Bilinear Interpolation' 
  2: type = ' Cubic Interpolation'
  else: message,'Illegal value of Interp parameter: must be 0,1, or 2'
  endcase
@@ -213,7 +213,7 @@ pro hrot, oldim, oldhd, newim, newhd, angle, xc, yc, int, MISSING=missing, $
                 [-sin(theta), cos(theta)] ] 
     
     ncrpix =  transpose(rot_mat)#(crpix-1-[xc,yc]) + 1
-    if not keyword_set(PIVOT) then ncrpix = [xc_new,yc_new] + ncrpix $
+    if ~keyword_set(PIVOT) then ncrpix = [xc_new,yc_new] + ncrpix $
                               else ncrpix = [xc,yc] + ncrpix
     sxaddpar, newhd, 'CRPIX1', ncrpix[0]
     sxaddpar, newhd, 'CRPIX2', ncrpix[1]

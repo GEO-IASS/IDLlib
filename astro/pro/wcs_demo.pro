@@ -939,7 +939,7 @@ case map of
   end
   6:begin
     close,file_unit
-    spawn,["rm",file_name],/noshell
+    file_delete,file_name,/allow
     message,"ZPN: This map projection has not been implemented."
   end
   8:begin

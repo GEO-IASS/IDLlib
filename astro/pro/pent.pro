@@ -48,7 +48,7 @@
 ;
 ; EXAMPLE:
 ;
-;       To generate a similar sythetic data set to Cincotta et al. we
+;       To generate a similar synthetic data set to Cincotta et al. we
 ;        do the following:
 ;
 ;       IDL> P0 = 173.015                        ; Fundamental period

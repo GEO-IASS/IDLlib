@@ -37,7 +37,7 @@
 ;		  only needed prior to IDL Version 4.0, when the double 
 ;		  double complex datatype was unavailable in IDL
 ;	BIT	= If passed, and ARRAY is of type byte, then the column is
-;		  defined as containg bit mask arrays (type "X"), with the
+;		  defined as containing bit mask arrays (type "X"), with the
 ;		  value of BIT being equal to the number of mask bits.
 ;	LOGICAL	= If set, and array is of type byte, then the column is defined
 ;		  as containing logical arrays (type "L").
@@ -116,8 +116,12 @@
 ;		Recognize double complex IDL datatype
 ;       Version 6, Wayne Landsman, GSFC. C. Yamauchi (ISAS) 23 Feb 2006
 ;               Support 64bit integers
+;       Version 7, C. Markwardt, GSFC, Allow unsigned integers, which
+;               have special TSCAL/TZERO values.  Feb 2009
+;       Version 8,  P.Broos (PSU), Wayne Landsman (GSFC) Mar 2010
+;               Do *not* force TTYPE* keyword to uppercase
 ; Version     :
-;       Version 6, 23 Feb 2006
+;       Version 8, Mar 2010
 ;-
 ;
 	ON_ERROR,2
@@ -254,7 +258,41 @@
 			TF_COMMENT = 'Complex*16 (double-' +	$
 					'precision complex)'
 			END
-			
+
+                12: BEGIN  
+                        ;; Unsigned 16-bit integers are stored as signed
+                        ;; integers with a TZERO offset.
+                        N_BYTES = 2*N_ELEM
+                        TFORM = "I"
+                        TF_COMMENT = 'Unsigned Integer*2 (short integer)'
+                        IF N_ELEMENTS(TSCAL) EQ 0 THEN TSCAL = 1
+                        IF N_ELEMENTS(TZERO) EQ 0 THEN TZERO = 32768
+                        IF TSCAL[0] NE 1 OR TZERO[0] NE 32768 THEN BEGIN
+                           MESSAGE = 'For 2-byte unsigned type, TSCAL/TZERO must be 1/32768'
+                           IF N_ELEMENTS(ERRMSG) NE 0 THEN BEGIN
+                              ERRMSG = MESSAGE
+                              RETURN
+                           END ELSE MESSAGE, MESSAGE
+                        ENDIF
+                     END
+                           
+                13: BEGIN
+                        ;; Unsigned 32-bit integers are stored as signed
+                        ;; integers with a TZERO offset.
+                        N_BYTES = 4*N_ELEM
+                        TFORM = "J"
+                        TF_COMMENT = 'Unsigned Integer*4 (long integer)'
+                        IF N_ELEMENTS(TSCAL) EQ 0 THEN TSCAL = 1
+                        IF N_ELEMENTS(TZERO) EQ 0 THEN TZERO = 2147483648D
+                        IF TSCAL[0] NE 1 OR TZERO[0] NE 2147483648D THEN BEGIN
+                           MESSAGE = 'For 4-byte unsigned type, TSCAL/TZERO must be 1/2147483648'
+                           IF N_ELEMENTS(ERRMSG) NE 0 THEN BEGIN
+                              ERRMSG = MESSAGE
+                              RETURN
+                           END ELSE MESSAGE, MESSAGE
+                        ENDIF
+                     END
+
 		14: BEGIN
 			N_BYTES = 8*N_ELEM
 			TFORM = "K"
@@ -262,6 +300,7 @@
 					'integer)'
 			END
 	               		
+
 
 	ENDCASE
 ;
@@ -292,7 +331,7 @@
 ;
 	IF N_PARAMS() GE 4 THEN BEGIN
 		If N_PARAMS() EQ 4 THEN COMMENT="Label for column "+COL
-		FXADDPAR,HEADER,'TTYPE'+COL,STRUPCASE(TTYPE),COMMENT
+		FXADDPAR,HEADER,'TTYPE'+COL,TTYPE,COMMENT
 	ENDIF
 ;
 ;  If the number of dimensions of the data array are greater than one, then add

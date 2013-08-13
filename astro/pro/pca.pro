@@ -82,11 +82,13 @@ PRO PCA, data, eigenval, eigenvect, percentages, proj_obj, proj_atr, $
 ;         of what PCA expects
 ;   (2) PCA uses standardized variables for the correlation matrix:  the input 
 ;        vectors are set to a  mean of zero and variance of one and divided by 
-;        sqrt(n); use the /STANDARIZE keyword to PCOMP for a direct comparison.
+;        sqrt(n); use the /STANDARDIZE keyword to PCOMP for a direct comparison.
 ;   (3) PCA (unlike PCOMP) normalizes the eigenvectors by the square root
 ;         of the eigenvalues.
 ;   (4) PCA returns cumulative percentages; the VARIANCES keyword of PCOMP
 ;         returns the variance in each variable
+;   (5) PCOMP divides the eigenvalues by (1/N_OBJ-1) when the covariance matrix
+;          is used.
 ;
 ; EXAMPLE:
 ;      Perform a PCA analysis on the covariance matrix of a data matrix, DATA,
@@ -123,7 +125,14 @@ PRO PCA, data, eigenval, eigenvect, percentages, proj_obj, proj_atr, $
   print,'               [MATRIX =, /COVARIANCE, /SSQ, /SILENT, TEXTOUT=]'
   RETURN
  ENDIF 
- 
+
+;Define nonstandard system variables if not already present
+
+  defsysv, '!TEXTUNIT', exist = exist
+     if ~exist then  defsysv, '!TEXTUNIT', 0
+  defsysv, '!TEXTOUT', exist = exist
+     if ~exist then defsysv, '!TEXTOUT', 1
+
   
   if size(data,/N_dimen)  NE 2 THEN BEGIN 
     HELP,data
@@ -187,9 +196,9 @@ PRO PCA, data, eigenval, eigenvect, percentages, proj_obj, proj_atr, $
 
 ; Output eigen-values and -vectors 
 
-  if not keyword_set(SILENT) then begin
+  if ~keyword_set(SILENT) then begin
 ;       Open output file 
-        if not keyword_set( TEXTOUT ) then TEXTOUT = textout
+        if ~keyword_set( TEXTOUT ) then TEXTOUT = textout
         textopen,'PCA', TEXTOUT = textout
         printf,!TEXTUNIT,'PCA: ' + systime()
         sz1 = strtrim( Nobj,2) & sz2 = strtrim( Mattr, 2 )
@@ -219,7 +228,7 @@ PRO PCA, data, eigenval, eigenvect, percentages, proj_obj, proj_atr, $
  if count NE 0 THEN projx[index]=0
  proj_obj = reverse( transpose(projx) )
 
- if not keyword_set( SILENT ) then begin
+ if ~keyword_set( SILENT ) then begin
          printf,!TEXTUNIT,' '
          printf,!TEXTUNIT, 'Projection of objects on principal axes ...'
          printf,!TEXTUNIT,' '
@@ -241,7 +250,7 @@ PRO PCA, data, eigenval, eigenvect, percentages, proj_obj, proj_atr, $
  temp = replicate( 1.0, Mattr )
  proj_atr = reverse(projy)/(sqrt(eigenval)#temp)
 
- if not keyword_set( SILENT ) then begin
+ if ~keyword_set( SILENT ) then begin
         printf,!TEXTUNIT,' '
         printf,!TEXTUNIT,'Projection of attributes on principal axes ...'
         printf,!TEXTUNIT,' '

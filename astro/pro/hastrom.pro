@@ -4,9 +4,9 @@ pro hastrom,oldim,oldhd,newim,newhd,refhd,MISSING=missing, INTERP = interp, $
 ; NAME:
 ;       HASTROM
 ; PURPOSE:
-;       Linear transformation of an image to align it with a reference image
+;       Transformation of an image to align it with a reference image
 ; EXPLANATION:
-;       A linear transformation is applied (using POLY_2D) to an image so that   
+;       A  transformation is applied (using POLY_2D) to an image so that   
 ;       its astrometry is identical with that in a reference header.  This
 ;       procedure can be used to align two images.
 ;
@@ -25,7 +25,7 @@ pro hastrom,oldim,oldhd,newim,newhd,refhd,MISSING=missing, INTERP = interp, $
 ;               will be rotated, shifted, and compressed or expanded until
 ;               its astrometry matches that in REFHD.
 ; OUTPUTS:
-;       NEWIM - Image array after linear tranformation has been performed.
+;       NEWIM - Image array after transformation has been performed.
 ;               The dimensions of NEWIM will be identical to the NAXIS1 and 
 ;               NAXIS2 keywords specified in REFHD.  Regions on the reference 
 ;               image that do not exist in OLDIM can be assigned a value with
@@ -89,7 +89,6 @@ pro hastrom,oldim,oldhd,newim,newhd,refhd,MISSING=missing, INTERP = interp, $
 ;       New astrometry keywords                    Mar, 1994
 ;       Recognize GSSS header   W. Landsman        June, 1994
 ;       Added CUBIC keyword     W. Landsman        March, 1997
-;       Converted to IDL V5.0   W. Landsman        September 1997
 ;       Accept INTERP=0, Convert output GSS header to standard astrometry
 ;                               W. Landsman        June 1998
 ;       Remove calls to obsolete !ERR system variable   March 2000
@@ -99,6 +98,8 @@ pro hastrom,oldim,oldhd,newim,newhd,refhd,MISSING=missing, INTERP = interp, $
 ;       information                        W. Landsman   February 2005
 ;       Use different coefficient for nearest neighbor to avoid half-pixel
 ;       shift with POLY_2D      W. Landsman   Aug 2006
+;       Return ERRMSG if no overlap between images  W. Landsman  Nov 2007
+;       Use V6.0 notation  W. Landsman  Jan 2012
 ;       
 ;-
  compile_opt idl2
@@ -125,13 +126,13 @@ save_err = arg_present(errmsg)     ;Does user want error msgs returned?
 ;                                    Check for valid 2-D image & header
  check_FITS, oldim, oldhd, dimen, /NOTYPE, ERRMSG = errmsg
   if errmsg NE '' then begin
-        if not save_err then message,'ERROR - ' + errmsg,/CON
+        if ~save_err then message,'ERROR - ' + errmsg,/CON
         return
   endif
 
   if N_elements(dimen) NE 2 then begin 
         errmsg =  'ERROR - Input image array must be 2-dimensional'
-        if not save_err then message,'ERROR - ' + errmsg,/CON
+        if ~save_err then message,'ERROR - ' + errmsg,/CON
         return
  endif
 
@@ -139,9 +140,9 @@ save_err = arg_present(errmsg)     ;Does user want error msgs returned?
 
  xsize_ref = sxpar( refhd, 'NAXIS1' )                ;Get output image size
  ysize_ref = sxpar( refhd, 'NAXIS2' ) 
- if (xsize_ref LT 1) or (ysize_ref LT 1) then begin 
+ if (xsize_ref LT 1) || (ysize_ref LT 1) then begin 
        errmsg = 'ERROR - Reference header must be for a 2-dimensional image'
-       if not save_err then message,'ERROR - ' + errmsg,/CON
+       if ~save_err then message,'ERROR - ' + errmsg,/CON
        return
  endif
      
@@ -152,13 +153,13 @@ save_err = arg_present(errmsg)     ;Does user want error msgs returned?
  extast, newhd, astr_old, par_old    
  if ( par_old LT 0 ) then begin   
        errmsg = 'ERROR - Input FITS Header does not contain astrometry'
-       if not save_err then message,'ERROR - ' + errmsg,/CON
+       if ~save_err then message,'ERROR - ' + errmsg,/CON
        return
  endif
  extast, refhd, astr_ref, par_ref    
- if ( par_old LT 0 ) or ( par_ref LT 0 ) then begin  
+ if ( par_old LT 0 ) || ( par_ref LT 0 ) then begin  
        errmsg = 'ERROR -Reference FITS Header does not contain astrometry'
-       if not save_err then message,'ERROR - ' + errmsg,/CON
+       if ~save_err then message,'ERROR - ' + errmsg,/CON
        return
  endif
 
@@ -179,7 +180,7 @@ save_err = arg_present(errmsg)     ;Does user want error msgs returned?
 
 ; Make a grid of points in the reference image to be used for the transformation
 
- if not keyword_set( DEGREE ) then degree = 1
+ if ~keyword_set( DEGREE ) then degree = 1
     if tag_exist(astr_old,'DISTORT') then begin
        distort = astr_old.distort
        if distort.name EQ 'SIP' then begin
@@ -196,8 +197,8 @@ save_err = arg_present(errmsg)     ;Does user want error msgs returned?
         endif
      endif
       
- if not keyword_set(NGRID) then ngrid = (degree + 2)
- if not keyword_set(CUBIC) then begin 
+ if ~keyword_set(NGRID) then ngrid = (degree + 2)
+ if ~keyword_set(CUBIC) then begin 
         cubic = 0
         if N_elements(INTERP) EQ 0 then Interp = 1
  endif
@@ -224,16 +225,20 @@ save_err = arg_present(errmsg)     ;Does user want error msgs returned?
         else: ad2xy, ra, dec, astr_old, x, y
  endcase
 
- if ( max(x) LT 0 ) or ( min(x) GT xsize_old ) or $
-    ( max(y) LT 0 ) or ( min(y) GT ysize_old ) then begin
-  message,'ERROR - No overlap found between original and reference images',/CON
-  print,'Be sure you have the right headers and the right equinoxes'
-  return
+ if ( max(x) LT 0 ) || ( min(x) GT xsize_old ) || $
+    ( max(y) LT 0 ) || ( min(y) GT ysize_old ) then begin
+      errmsg = 'No overlap found between original and reference images'
+      if ~save_err then begin 
+         message,'ERROR - ' + errmsg,/CON
+         message,'Be sure you have the right headers and the right equinoxes',/CON
+      endif	 
+      return
  endif
+
 
   if interp EQ 0 $ ;Get coefficients
     then polywarp, x+.5, y+.5, xref, yref, degree, kx, ky $
-  else polywarp, x, y, xref, yref, degree, kx, ky 
+    else polywarp, x, y, xref, yref, degree, kx, ky 
   
  
  if N_elements(missing) NE 1 then begin        ;Do the warping
@@ -280,7 +285,7 @@ save_err = arg_present(errmsg)     ;Does user want error msgs returned?
 ; approximate correction for nonlinear warping.
 
  bscale = sxpar( newhd, 'BSCALE', Count = N_Bscale)
- if (N_bscale GT 0 ) and ( bscale NE 1. ) then begin
+ if (N_bscale GT 0 ) && ( bscale NE 1. ) then begin
     getrot, astr_old, rot, cdelt_old
     getrot, astr_ref, rot, cdelt_ref
     pix_ratio = ( cdelt_old[0]*cdelt_old[1]) / (cdelt_ref[0]*cdelt_ref[1] )

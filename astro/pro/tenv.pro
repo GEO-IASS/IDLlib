@@ -3,23 +3,27 @@
 ; NAME:
 ;	TENV()
 ; PURPOSE:
-;	Converts sexigesimal number or vector to decimal.  
+;	Converts sexagesimal number or string vector to decimal.  
 ; EXPLANATION:
 ;	Like TEN() but allows vector input.
 ;
 ; CALLING SEQUENCES:
 ;	Result = TENV( dd, mm )           ; result = dd + mm/60.
 ;	Result = TENV( dd, mm, ss)        ; result = dd + mm/60. + ss/3600.
-;
+;                       or
+;       Result = TENV(ddmmss_string)
 ; INPUTS:
-;	dd - Sexigesimal element(s) corresponding to hours or degrees
-;	mm - Sexigesimal element(s) corresponding to minutes
-;	ss - Sexigesimal element(s) corresponding to seconds (optional)
+;	dd - sexagesimal element(s) corresponding to hours or degrees
+;	mm - sexagesimal element(s) corresponding to minutes
+;	ss - sexagesimal element(s) corresponding to seconds (optional)
 ;		The input parameters can be scalars or vectors.   However, the
 ;		number of elements in each parameter must be the same.
 ;
+;       HRMNSC_STRING - String scalar or vector giving sexagesmal quantity 
+;               separated by spaces or colons e.g. "10 23 34" or "-3:23:45.2"
+;               Any negative values should begin with a minus sign.
 ; OUTPUTS:
-;	Result -  double, decimal equivalent of input sexigesimal 
+;	Result -  double, decimal equivalent of input sexagesimal 
 ;		quantities.  Same number of elements as the input parameters.
 ;		If the nth element in any of the input parameters is negative 
 ;		then the nth element in Result will also be negative.
@@ -28,30 +32,49 @@
 ;	If dd = [60,60,0], and mm = [30,-30,-30], then
 ;
 ;	IDL> Result = TENV(dd,mm)  ====>   Result =  [60.5,-60.5,-0.5]
+;       
+;       Alternatively, the input could be written as the string vector
+;       IDL> str = ['60:30','-60:30','-0:30'] 
+;       IDL> print,tenv(str)   ====>   Result =  [60.5,-60.5,-0.5]
 ;
 ; WARNING: 
-;       TENV() will recognize values of -0.0 as negative numbers.    However,
-;        there is no distinction in the binary representation of -0 and 0 
-;        (integer values), and so TENV will treat both values as positive.
+;       TENV() will recognize floating point values of -0.0 as negative numbers.
+;       However,  there is no distinction in the binary representation of -0 
+;       and 0  (integer values), and so TENV will treat both values as positive.
+; PROCEDURES USED:
+;       GETTOK(), REPCHR()  for string processing.
 ; PROCEDURE:
 ;	Mostly involves checking arguments and setting the sign.
 ;
 ;   MODIFICATION HISTORY:
 ;	Written by W.B. Landsman           April, 1991
 ;       Recognize -0.0   W. Landsman/B. Stecklum   Dec 2005
+;       Work with string input   W. Landsman Feb 2009
 ;
 ;-
  compile_opt idl2
  On_error,2                                 ;Return to caller
 
- npts = N_elements(dd)
  npar = N_params()
+ npts = N_elements(dd)
  if npts EQ 0 then begin
      print,'Syntax -  RESULT = TENV( dd, mm, ss)'
      return, 0.0d
  endif
 
- if ( npar EQ 1 ) then return,double( dd )   ;No need to check for neg values.
+ if ( npar EQ 1 ) then begin 
+ if size(dd,/TNAME) EQ 'STRING' then begin 
+       temp = strtrim(dd,2)
+       temp = repchr(temp,':',' ')
+       neg = where( strmid(temp,0,1) EQ '-', Nneg)
+       value = abs(double(gettok(temp,' ')))
+       mm = double(gettok(temp,' '))
+       decimal =  value + mm/60. + double(temp)/3600.0d
+       if Nneg GT 0 then decimal[neg] = -decimal[neg]
+       return,decimal
+         
+ endif else return,double( dd )   ;No need to check for neg values.
+ endif
 
  value = double( abs(dd) ) 
 

@@ -1,5 +1,5 @@
 pro plotsym, psym, psize, FILL=fill,thick=thick,Color = color
-   ;+
+;+
 ; NAME:
 ;     PLOTSYM
 ; PURPOSE:
@@ -9,7 +9,7 @@ pro plotsym, psym, psize, FILL=fill,thick=thick,Color = color
 ;     follow with either PSYM = 8 or !P.PSYM = 8 (see USERSYM)
 ;
 ;     For additional rotationally symmetric plotting symbols, see VSYM.PRO
-;     or http://www.dfanning.com/documents/programs.html#SYMCAT
+;     Also see CGSYMCAT in the/coyote directory.
 ; CALLING SEQUENCE:
 ;     PLOTSYM, PSYM,[ PSIZE, /FILL, THICK=, COLOR=]
 ;
@@ -74,8 +74,8 @@ pro plotsym, psym, psize, FILL=fill,thick=thick,Color = color
 
  if ( N_elements(psize) LT 1 ) then psize = 1 else psize = psize > 0.1
 
- if not keyword_set(FILL) then fill = 0
- if not keyword_set(thick) then thick=1
+ if ~keyword_set(FILL) then fill = 0
+ if ~keyword_set(thick) then thick=1
 
   case psym of
   0:  begin          ;Circle

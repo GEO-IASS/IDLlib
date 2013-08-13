@@ -9,23 +9,24 @@ pro sky,image,skymode,skysig, SILENT=silent, CIRCLERAD = circlerad, $
 ;       Approximately 10000 uniformly spaced pixels are selected for the
 ;       computation.  Adapted from the DAOPHOT routine of the same name.
 ;
-;       The sky is computed either by using the procedure mmm.pro (defualt) 
+;       The sky is computed either by using the procedure mmm.pro (default) 
 ;       or by sigma clipping (if /MEANBACK is set) 
 ;
 ; CALLING SEQUENCE:
 ;       SKY, image, [ skymode, skysig ,/SILENT, /MEANBACK, /NAN, CIRCLERAD= ]
 ;     
 ;         Keywords available  when MEANBACK is not set (passed to mmm.pro): 
-;                   HIGHBAD=, /INTEGER,  READNOISE=
+;                   /DEBUG, HIGHBAD=, /INTEGER, MAXITER=. READNOISE=
 ;         Keywords available when /MEANBACK is set: 
-;                   CLIPSIG=, /DOUBLE, CONVERGE_NUM=, MAXITER= 
+;                   CLIPSIG=, /DOUBLE, CONVERGE_NUM=, MAXITER=, /VERBOSE 
 ; INPUTS:
 ;       IMAGE - One or two dimensional array
 ;
 ; OPTIONAL OUTPUT ARRAYS:
 ;       SKYMODE - Scalar, giving the mode of the sky pixel values of the 
-;               array IMAGE, as determined by the procedure MMM.
-;       SKYSIG -  Scalar, giving standard deviation of sky brightness
+;               array IMAGE, as determined by the procedures MMM or MEANCLIP
+;       SKYSIG -  Scalar, giving standard deviation of sky brightness.   If it
+;               was not possible to derive a mode then SKYSIG is set to -1
 ;
 ; INPUT KEYWORD PARAMETERS:
 ;	CIRCLERAD - Use this keyword to have SKY only select pixels within
@@ -74,7 +75,7 @@ pro sky,image,skymode,skysig, SILENT=silent, CIRCLERAD = circlerad, $
 ;
 ; PROCEDURE:
 ;       A grid of points, not exceeding 10000 in number, is extracted
-;       from the image array.  The mode of these pixel values is determined
+;       from the srray.  The mode of these pixel values is determined
 ;       by the procedure mmm.pro or meanclip.pro.   In a 2-d array the grid is 
 ;       staggered in each row to avoid emphasizing possible bad columns
 ;
@@ -92,6 +93,9 @@ pro sky,image,skymode,skysig, SILENT=silent, CIRCLERAD = circlerad, $
 ;             calculations       W. Landsman November 2005
 ;      Fix problem for very large images by requiring at least 2 pixels to
 ;       be sampled per row.    March 2007    W. Landsman
+;      Avoid possible out of bounds if /NAN set   W. Landsman   Jan 2008
+;      Use  TOTAL(/INTEGER)      June 2009
+;      Fix occasional out of bounds problem when /NAN set W. Landsman Jul 2013
 ;-
   On_error,2              ;Return to caller
   compile_opt idl2
@@ -102,7 +106,7 @@ pro sky,image,skymode,skysig, SILENT=silent, CIRCLERAD = circlerad, $
         return
  endif
 
- checkbad = (N_elements(highbad) GT 0) or keyword_set(circlerad) or $
+ checkbad = (N_elements(highbad) GT 0) || keyword_set(circlerad) || $
               keyword_set(nan)                          
  s = size(image)      
  nrow = s[1]
@@ -123,15 +127,15 @@ pro sky,image,skymode,skysig, SILENT=silent, CIRCLERAD = circlerad, $
                   dist_circle,drad, nrow
                   mask = mask and (temporary(drad) LT rad)
            endif
-          npts = total(mask)
+          npts = total(mask,/integer)  
  endif else  npts = N_elements(image)
  
-;  Use 10000 data points or  at least 2 points per row
+;  Use ~10000 data points or  at least 2 points per row
  maxsky = 2*npts/(nrow-1) > 10000          ;Maximum # of pixels to be used in sky calculation
 ; Maintain the same data type as the input image Nov 2005
- skyvec = make_array(maxsky,type=size(image,/type))
-     istep = npts/maxsky +1
-    nstep = (nrow/istep)
+    istep = npts/maxsky +1
+ skyvec = make_array(maxsky+200,type=size(image,/type))
+     nstep = (nrow/istep)
  
     jj = 0
     index0 = istep*lindgen(nstep) 
@@ -142,6 +146,7 @@ pro sky,image,skymode,skysig, SILENT=silent, CIRCLERAD = circlerad, $
 
 ; The beginning index in each row is staggered to avoid emphasizing possible
 ; bad columns
+
     for i=0, Ncol-1 do begin
         index  = index0 + (i mod istep)  
         row = image[*,i]
@@ -155,9 +160,10 @@ pro sky,image,skymode,skysig, SILENT=silent, CIRCLERAD = circlerad, $
           endif else ng = nrow
    	      imax = value_locate( index, ng-1) > 0
 	       ix = index[0:imax] < (ng-1)
-       skyvec[jj] = row[ix]
+	       skyvec[jj] = row[ix]
           jj = jj + imax + 1
  DONE:
+
   endfor    
   skyvec = skyvec[0:jj-1] 
 
@@ -169,7 +175,7 @@ pro sky,image,skymode,skysig, SILENT=silent, CIRCLERAD = circlerad, $
  MMM, skyvec, skymode, skysig, _EXTRA = _extra, nsky = nsky
 
  skymode = float(skymode)  &  skysig = float(skysig)
- if not keyword_set(SILENT) then begin
+ if ~keyword_set(SILENT) then begin
         print,'Number of points used to find sky = ',nsky
         print,'Approximate sky value for this frame = ',skymode
         print,'Standard deviation of sky brightness = ',skysig

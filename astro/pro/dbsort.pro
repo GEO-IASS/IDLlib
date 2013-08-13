@@ -44,8 +44,10 @@ function dbsort,list,items,REVERSE = rev
 ;       VERSION 1  D. Lindler  Oct. 86
 ;       Added REVERSE keyword   W. Landsman        August, 1991
 ;       Avoid use of EXECUTE() for V6.1 or later   W. Landsman Dec 2006
+;       Assume since V6.1   W. Landsman   June 2009
+;       Add TEMPORARY call  W. Lnadsman  July 2009
 ;-
-
+ On_error,2
  compile_opt idl2
  if N_params() LT 2 then begin
      print,'Syntax: newlist = dbsort( list, items, [ REVERSE = ] )'
@@ -55,7 +57,6 @@ function dbsort,list,items,REVERSE = rev
 ; data base common block, see DBOPEN for meanings
 
  common db_com,QDB,QITEMS,QLINK
- no_exec = !VERSION.RELEASE GE '6.1'
 
 ; check parameters
 
@@ -103,9 +104,7 @@ function dbsort,list,items,REVERSE = rev
 
         j = nitems-i
         vv = 'v' + strtrim(j,2) 
-        if no_exec then $
-            v = (scope_varfetch(vv, level=0)) else $
-            status = execute('v=' + vv)
+        v = temporary(scope_varfetch(vv, level=0))
 
 ; perform previous sorts on item
 

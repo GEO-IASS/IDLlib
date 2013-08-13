@@ -9,6 +9,10 @@
 ;       between two structure arrays (may have different struct.definitions),
 ;       and return a structured List of fields found different.
 ;
+;       The Exelis contrib library has a faster but less powerful procedure
+;       struct_equal.pro, see 
+;       http://www.exelisvis.com/Default.aspx?tabid=1540&id=1175
+;
 ; CALLING SEQUENCE:
 ;       diff_List = compare_struct( struct_A, struct_B [ EXCEPT=, /BRIEF,
 ;                                    /FULL, /NaN, /RECUR_A, /RECUR_B )
@@ -55,14 +59,15 @@
 ; MODIFICATION HISTORY:
 ;       written 1990 Frank Varosi STX @ NASA/GSFC (using copy_struct)
 ;       modif Aug.90 by F.V. to check and compare same # of elements only.
-;       Converted to IDL V5.0   W. Landsman   September 1997
 ;       Added /NaN keyword W. Landsman  March 2004
+;       Don't test string for NaN values W. Landsman March 2008
 ;-
 
 function compare_struct, struct_A, struct_B, EXCEPT=except_Tags, Struct_Name, $
                                         FULL=full, BRIEF=brief, NaN = NaN, $
                                         RECUR_A = recur_A, RECUR_B = recur_B
 
+   compile_opt idl2
    common compare_struct, defined
    if N_params() LT 2 then begin
        print,'Syntax - diff_List = compare_struct(struct_A, struct_B '
@@ -166,9 +171,12 @@ function compare_struct, struct_A, struct_B, EXCEPT=except_Tags, Struct_Name, $
                            if keyword_set(NaN) then begin
                                   x1 = struct_b.(tB)
                                   x2 = struct_a.(tA)
+				  if (size(x1,/tname) NE 'STRING') and $
+				     (size(x2,/tname) NE 'STRING') then begin
                                   g = where( finite(x1) or finite(x2), Ndiff )
                                   if Ndiff GT 0 then $
                                     w = where( x1[g] NE x2[g], Ndiff ) 
+				    endif
                            endif else $ 
                             w = where( struct_B.(tB) NE struct_A.(tA) , Ndiff )
 

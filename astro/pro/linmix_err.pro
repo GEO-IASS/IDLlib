@@ -5,38 +5,37 @@
 ;   PURPOSE:
 ;      Bayesian approach to linear regression with errors in both X and Y
 ;   EXPLANATION:
-;     PERFORM LINEAR REGRESSION OF Y ON X WHEN THERE ARE MEASUREMENT
-;     ERRORS IN BOTH VARIABLES. THE REGRESSION ASSUMES :
+;     Perform linear regression of y on x when there are measurement
+;     errors in both variables. the regression assumes :
 ;
 ;                 ETA = ALPHA + BETA * XI + EPSILON
 ;                 X = XI + XERR
 ;                 Y = ETA + YERR
 ;
-; HERE, (ALPHA, BETA) ARE THE REGRESSION COEFFICIENTS, EPSILON IS THE
-; INTRINSIC RANDOM SCATTER ABOUT THE REGRESSION, XERR IS THE
-; MEASUREMENT ERROR IN X, AND YERR IS THE MEASUREMENT ERROR IN
-; Y. EPSILON IS ASSUMED TO BE NORMALLY-DISTRIBUTED WITH MEAN ZERO AND
-; VARIANCE SIGSQR. XERR AND YERR ARE ASSUMED TO BE
-; NORMALLY-DISTRIBUTED WITH MEANS EQUAL TO ZERO, VARIANCES XSIG^2 AND
-; YSIG^2, RESPECTIVELY, AND COVARIANCE XYCOV. THE DISTRIBUTION OF XI
-; IS MODELLED AS A MIXTURE OF NORMALS, WITH GROUP PROPORTIONS PI,
-; MEAN MU, AND VARIANCE TAUSQR. BAYESIAN INFERENCE IF EMPLOYED, AND
-; A STRUCTURE CONTAINING RANDOM DRAWS FROM THE POSTERIOR IS
-; RETURNED. CONVERGENCE OF THE MCMC TO THE POSTERIOR IS MONITORED
-; USING THE POTENTIAL SCALE REDUCTION FACTOR (RHAT, GELMAN ET
-; AL.2004). IN GENERAL, WHEN RHAT < 1.1 THEN APPROXIMATE CONVERGENCE
-; IS REACHED.
 ;
-; SIMPLE NON-DETECTIONS ON Y MAY ALSO BE INCLUDED
+; Here, (ALPHA, BETA) are the regression coefficients, EPSILON is the
+; intrinsic random scatter about the regression, XERR is the
+; measurement error in X, and YERR is the measurement error in
+; Y. EPSILON is assumed to be normally-distributed with mean zero and
+; variance SIGSQR. XERR and YERR are assumed to be
+; normally-distributed with means equal to zero, variances XSIG^2 and
+; YSIG^2, respectively, and covariance XYCOV. The distribution of XI
+; is modelled as a mixture of normals, with group proportions PI,
+; mean MU, and variance TAUSQR. Bayesian inference is employed, and
+; a structure containing random draws from the posterior is
+; returned. Convergence of the MCMC to the posterior is monitored
+; using the potential scale reduction factor (RHAT, Gelman et
+; al.2004). In general, when RHAT < 1.1 then approximate convergence
+; is reached.
 ;
-; AUTHOR : BRANDON C. KELLY, STEWARD OBS., JULY 2006
-;  
+; Simple non-detections on y may also be included.
+;
 ; CALLING SEQUENCE:
 ;
 ;     LINMIX_ERR, X, Y, POST, XSIG=, YSIG=, XYCOV=, DELTA=, NGAUSS=, /SILENT, 
 ;                /METRO, MINITER= , MAXITER= 
 ;
-;    
+;
 ; INPUTS :
 ;
 ;   X - THE OBSERVED INDEPENDENT VARIABLE. THIS SHOULD BE AN
@@ -74,13 +73,36 @@
 ;             MCMC. THE DEFAULT IS 1D5. THE MCMC IS STOPPED
 ;             AUTOMATICALLY AFTER MAXITER ITERATIONS.
 ;   NGAUSS - THE NUMBER OF GAUSSIANS TO USE IN THE MIXTURE
-;            MODELLING. THE DEFAULT IS 3. 
+;            MODELLING. THE DEFAULT IS 3. IF NGAUSS = 1, THEN THE
+;            PRIOR ON (MU, TAUSQR) IS ASSUMED TO BE UNIFORM.
 ;
 ; OUTPUT :
 ;
 ;    POST - A STRUCTURE CONTAINING THE RESULTS FROM THE MCMC. EACH
 ;           ELEMENT OF POST IS A DRAW FROM THE POSTERIOR DISTRIBUTION
 ;           FOR EACH OF THE PARAMETERS.
+;
+;             ALPHA - THE CONSTANT IN THE REGRESSION.
+;             BETA - THE SLOPE OF THE REGRESSION.
+;             SIGSQR - THE VARIANCE OF THE INTRINSIC SCATTER.
+;             PI - THE GAUSSIAN WEIGHTS FOR THE MIXTURE MODEL.
+;             MU - THE GAUSSIAN MEANS FOR THE MIXTURE MODEL.
+;             TAUSQR - THE GAUSSIAN VARIANCES FOR THE MIXTURE MODEL.
+;             MU0 - THE HYPERPARAMETER GIVING THE MEAN VALUE OF THE
+;                   GAUSSIAN PRIOR ON MU. ONLY INCLUDED IF NGAUSS >
+;                   1.
+;             USQR - THE HYPERPARAMETER DESCRIBING FOR THE PRIOR
+;                    VARIANCE OF THE INDIVIDUAL GAUSSIAN CENTROIDS
+;                    ABOUT MU0. ONLY INCLUDED IF NGAUSS > 1.
+;             WSQR - THE HYPERPARAMETER DESCRIBING THE `TYPICAL' SCALE
+;                    FOR THE PRIOR ON (TAUSQR,USQR). ONLY INCLUDED IF
+;                    NGAUSS > 1.
+;             XIMEAN - THE MEAN OF THE DISTRIBUTION FOR THE
+;                      INDEPENDENT VARIABLE, XI.
+;             XISIG - THE STANDARD DEVIATION OF THE DISTRIBUTION FOR
+;                     THE INDEPENDENT VARIABLE, XI.
+;             CORR - THE LINEAR CORRELATION COEFFICIENT BETWEEN THE
+;                    DEPENDENT AND INDEPENDENT VARIABLES, XI AND ETA.
 ;
 ; CALLED ROUTINES :
 ;
@@ -92,12 +114,26 @@
 ;     Parametric Measurement Error Models, Biometrics, 55, 44
 ;
 ;   Kelly, B.C., 2007, Some Aspects of Measurement Error in
-;     Linear Regression of Astronomical Data, ApJ, In press
+;     Linear Regression of Astronomical Data, The Astrophysical
+;     Journal, 665, 1489 (arXiv:0705.2774)
 ;
 ;   Gelman, A., Carlin, J.B., Stern, H.S., & Rubin, D.B., 2004,
 ;     Bayesian Data Analysis, Chapman & Hall/CRC
-;-
 ;
+; REVISION HISTORY
+;
+;     AUTHOR : BRANDON C. KELLY, STEWARD OBS., JULY 2006
+;   - MODIFIED PRIOR ON MU0 TO BE UNIFORM OVER [MIN(X),MAX(X)] AND
+;     PRIOR ON USQR TO BE UNIFORM OVER [0, 1.5 * VARIANCE(X)]. THIS
+;     TENDS TO GIVE BETTER RESULTS WITH FEWER GAUSSIANS. (B.KELLY, MAY
+;     2007)
+;   - FIXED BUG SO THE ITERATION COUNT RESET AFTER THE BURNIN STAGE
+;     WHEN SILENT = 1 (B. KELLY, JUNE 2009)
+;   - FIXED BUG WHEN UPDATING MU VIA THE METROPOLIS-HASTING
+;     UPDATE. PREVIOUS VERSIONS DID NO INDEX MUHAT, SO ONLY MUHAT[0]
+;     WAS USED IN THE PROPOSAL DISTRIBUTION. THANKS TO AMY BENDER FOR
+;     POINTING THIS OUT. (B. KELLY, DEC 2011)
+;-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -231,15 +267,17 @@ function logprior_mixerr, mu, mu0, tausqr, usqr, wsqr
 
 ngauss = n_elements(mu)
 
-logprior_mu = -0.5 * alog(usqr) - 0.5 * (mu - mu0)^2 / usqr
-logprior_mu = total(logprior_mu)
+if ngauss gt 1 then begin
 
-logprior_usqr = 0.5 * alog(wsqr) - 1.5 * alog(usqr) - 0.5 * wsqr / usqr
+    logprior_mu = -0.5 * alog(usqr) - 0.5 * (mu - mu0)^2 / usqr
+    logprior_mu = total(logprior_mu)
+    
+    logprior_tausqr = 0.5 * alog(wsqr) - 1.5 * alog(tausqr) - 0.5 * wsqr / tausqr
+    logprior_tausqr = total(logprior_tausqr)
 
-logprior_tausqr = 0.5 * alog(wsqr) - 1.5 * alog(tausqr) - 0.5 * wsqr / tausqr
-logprior_tausqr = total(logprior_tausqr)
+    logprior = logprior_mu + logprior_tausqr
 
-logprior = logprior_mu + logprior_usqr + logprior_tausqr
+endif else logprior = 0d ;if ngauss = 1 then uniform prior
 
 return, logprior
 end
@@ -287,9 +325,16 @@ for k = 0, ngauss - 1 do begin
     print, '   VARIANCE : ' + strtrim(arate[2+k+ngauss], 1)
 
 endfor
-print, ''
-print, 'u^2 : ' + strtrim(arate[2+2*ngauss], 1)
-print, 'w^2 : ' + strtrim(arate[3+2*ngauss], 1)
+
+if ngauss gt 1 then begin
+
+    print, ''
+    print, 'Mu0 : ' + strtrim(arate[2+2*ngauss], 1)
+    print, 'u^2 : ' + strtrim(arate[3+2*ngauss], 1)
+    print, 'w^2 : ' + strtrim(arate[4+2*ngauss], 1)
+
+endif
+
 print, ''
 
 return
@@ -356,6 +401,14 @@ if n_elements(delta) ne nx then begin
     return
 endif
 
+bad = where(finite(x) eq 0 or finite(y) eq 0 or finite(xsig) eq 0 or $
+            finite(ysig) eq 0 or finite(xycov) eq 0, nbad)
+
+if nbad gt 0 then begin
+    print, 'Non-finite input detected.'
+    return
+endif
+
 det = where(delta eq 1, ndet, comp=cens, ncomp=ncens) ;get detected data points
 
 if ncens gt 0 then begin
@@ -372,8 +425,8 @@ endif
 xnoerr = where(xsig eq 0, nxnoerr, comp=xerr, ncomp=nxerr)
 ynoerr = where(ysig eq 0, nynoerr, comp=yerr, ncomp=nyerr)
 
-ynoerr2 = where(ysig[xerr] eq 0, nxnoerr2)
-xnoerr2 = where(xsig[yerr] eq 0, nynoerr2)
+if nxerr gt 0 then ynoerr2 = where(ysig[xerr] eq 0, nynoerr2) else nynoerr2 = 0L
+if nyerr gt 0 then xnoerr2 = where(xsig[yerr] eq 0, nxnoerr2) else nxnoerr2 = 0L
 
 xvar = xsig^2
 yvar = ysig^2
@@ -435,14 +488,25 @@ sigsqrg = sigsqr * (nx / 2) / randomchi(seed, nx / 2, nchains)
 
 ;get starting values for the mixture parameters, first do prior
 ;parameters
+   
                                 ;mu0 is the global mean
-mu0g = mu0 + sqrt(variance(x) / nx) * randomn(seed, nchains) / $
-  sqrt(4d / randomchi(seed, 4, nchains))
+
+mu0min = min(x) ;prior for mu0 is uniform over mu0min < mu0 < mu0max
+mu0max = max(x)
+
+repeat begin
+    
+    mu0g = mu0 + sqrt(variance(x) / nx) * randomn(seed, nchains) / $
+      sqrt(4d / randomchi(seed, 4, nchains))
+
+    pass = where(mu0g gt mu0min and mu0g lt mu0max, npass)
+
+endrep until npass eq nchains
+
                                 ;wsqr is the global scale
 wsqrg = wsqr * (nx / 2) / randomchi(seed, nx / 2, nchains)
-                                ;usqr is the variance in the
-                                ;individual Gaussian (group) means
-usqrg = 0.5 * wsqrg * 4 / randomchi(seed, 4, nchains)
+
+usqrg = replicate(variance(x) / 2d, nchains)
 
 ;now get starting values for mixture parameters
 
@@ -498,7 +562,7 @@ for i = 0, nchains - 1 do eta[*,i] = y ;initial values for eta
 nut = 1 ;degrees of freedom for the prior on tausqr
 nuu = 1 ;degrees of freedom for the prior on usqr
 
-;number of parameters to moniter convergence on
+;number of parameters to monitor convergence on
 npar = 6
 
 if metro then begin
@@ -511,10 +575,11 @@ if metro then begin
 
                                 ;get variances for prior variance
                                 ;parameters
+    jvar_mu0 = variance(x) / ngauss
     jvar_wsqr = variance( alog(variance(x) * nx / randomchi(seed, nx, 1000)) )
     jvar_usqr = jvar_wsqr
 
-    naccept = lonarr(4 + 2 * ngauss)
+    naccept = lonarr(5 + 2 * ngauss)
     
     logpost = dblarr(nchains)
                                 ;get initial values of the
@@ -546,6 +611,7 @@ if not silent and metro then print, 'Doing Burn-in First...'
 
 ygibbs = y
 xi = x
+umax = 1.5 * variance(x) ;prior for usqr is uniform over 0 < usqr < umax
 
 if metro then begin
                                 ;define arrays now so we don't have to
@@ -796,15 +862,37 @@ repeat begin
 
                                 ;get mu|Xi,G,tausqr,mu0,usqr
 
-                    muhat = ngroup * mean(xi[group]) / tausqr[k,i] + mu0[i] / usqr[i]
-                    muvar = 1d / (1d / usqr[i] + ngroup / tausqr[k,i])
+                    if ngauss gt 1 then begin
+
+                        muhat = ngroup * mean(xi[group]) / tausqr[k,i] + mu0[i] / usqr[i]
+                        
+                        muvar = 1d / (1d / usqr[i] + ngroup / tausqr[k,i])
+
+                    endif else begin
+
+                        muhat = ngroup * mean(xi[group]) / tausqr[k,i]
+
+                        muvar = tausqr[k,i] / ngroup
+
+                    endelse
+
                     muhat = muvar * muhat
                     
                     mu[k,i] = muhat + sqrt(muvar) * randomn(seed)
                     
                                 ;get tausqr|Xi,G,mu,wsqr,nut
-                    nuk = ngroup + nut
-                    tsqr = (nut * wsqr[i] + total( (xi[group] - mu[k,i])^2 )) / nuk
+
+                    if ngauss gt 1 then begin
+                        
+                        nuk = ngroup + nut
+                        tsqr = (nut * wsqr[i] + total( (xi[group] - mu[k,i])^2 )) / nuk
+                        
+                    endif else begin
+
+                        nuk = ngroup
+                        tsqr = total( (xi[group] - mu[k,i])^2 ) / nuk
+
+                    endelse
                 
                     tausqr[k,i] = tsqr * nuk / randomchi(seed, nuk)
 
@@ -836,15 +924,15 @@ repeat begin
 
                     muvarx = (tausqr[k,i] + mean(xvar[group]))
 
-;                    muhat = ngroup * mean(x[group]) / muvarx + mu0[i] / usqr[i]
-                    muvar = 1d / (1d / usqr[i] + ngroup / muvarx)
-;                    muhat = muvar * muhat
+                    muvar = ngauss gt 1 ? 1d / (1d / usqr[i] + ngroup / muvarx) : $
+                      muvarx / ngroup
+
                     muhat = muprop
                     
                     chisqr = randomchi(seed, 4)
                                 ;draw proposal for mu from Student's t
                                 ;with 4 degrees of freedom
-                    muprop[k] = muhat + sqrt(muvar * 4 / chisqr) * randomn(seed)
+                    muprop[k] = muhat[k] + sqrt(muvar * 4 / chisqr) * randomn(seed)
 
                 endif else begin
                     
@@ -906,75 +994,117 @@ repeat begin
 
         endelse
         
-;finally, update parameters for prior distribution
+;finally, update parameters for prior distribution, only do this if
+;more than one gaussian
         
-        mu0[i] = mean(mu[*,i]) + sqrt(usqr[i] / ngauss) * randomn(seed)
+        if ngauss gt 1 then begin
 
-        if gibbs then begin
+            if gibbs then begin
+                
+                repeat mu0[i] = mean(mu[*,i]) + sqrt(usqr[i] / ngauss) * randomn(seed) $
+                  until (mu0[i] gt mu0min) and (mu0[i] lt mu0max)
 
-            nu = ngauss + nuu
-            usqr0 = (nuu * wsqr[i] + total( (mu[*,i] - mu0[i])^2 )) / nu
-
-            usqr[i] = usqr0 * nu / randomchi(seed, nu)
-
-        endif else begin
-                                ;do metropolis update
-            loglik = loglik_mixerr( x, ygibbs, xvar, yvar, xycov, delta, theta, $
+            endif else begin
+                
+                loglik = loglik_mixerr( x, ygibbs, xvar, yvar, xycov, delta, theta, $
                                         pi[*,i], mu[*,i], tausqr[*,i], Glabel[*,i] )
-
-            log_usqr = alog(usqr[i]) + sqrt(jvar_usqr) * randomn(seed)
-            usqr0 = exp(log_usqr)
-            
-            logprior_old = logprior_mixerr(mu[*,i], mu0[i], tausqr[*,i], usqr[i], wsqr[i])
-
-            logpost[i] = loglik + logprior_old ;update posterior after gibbs step for mu0
-
-            logprior_new = logprior_mixerr(mu[*,i], mu0[i], tausqr[*,i], usqr0, wsqr[i])
-            
-            logpost_new = loglik + logprior_new + log_usqr
-            logpost_old = loglik + logprior_old + alog(usqr[i])
-            
-            accept = linmix_metro_update( logpost_new, logpost_old, seed )
-            
-            if accept then begin
                 
-                naccept[2 + 2 * ngauss] = naccept[2 + 2 * ngauss] + 1L
-                usqr[i] = usqr0
-                logpost[i] = loglik + logprior_new
+                muprop = mu0[i] + sqrt(jvar_mu0) * randomn(seed)
+
+                if muprop gt mu0min and muprop lt mu0max then begin
+
+                    logprior_old = logprior_mixerr(mu[*,i], mu0[i], tausqr[*,i], usqr[i], wsqr[i])
+                    logprior_new = logprior_mixerr(mu[*,i], muprop, tausqr[*,i], usqr[i], wsqr[i])
+                    
+                    logpost_new = loglik + logprior_new
+                    logpost_old = loglik + logprior_old
+                    
+                    accept = linmix_metro_update( logpost_new, logpost_old, seed )
+                    
+                    if accept then begin
+                        
+                        naccept[2 + 2 * ngauss] = naccept[2 + 2 * ngauss] + 1L
+                        mu0[i] = muprop
+                        logpost[i] = loglik + logprior_new
+                        
+                    endif
                 
-            endif
-            
-        endelse
+                endif
 
-        if gibbs then begin
+            endelse
 
-            alphaw = (ngauss * nut + nuu) / 2d + 1
-            betaw = 0.5 * (nuu / usqr[i] + nut * total(1d / tausqr[*,i]))
-
-            wsqr[i] = randomgam(seed, alphaw, betaw)
-        
-        endif else begin
-
-            log_wsqr = alog(wsqr[i]) + sqrt(jvar_wsqr) * randomn(seed)
-            wsqr0 = exp(log_wsqr)
-
-            logprior_old = logprior_mixerr(mu[*,i], mu0[i], tausqr[*,i], usqr[i], wsqr[i])
-            logprior_new = logprior_mixerr(mu[*,i], mu0[i], tausqr[*,i], usqr[i], wsqr0)
-            
-            logpost_new = loglik + logprior_new + log_wsqr
-            logpost_old = loglik + logprior_old + alog(wsqr[i])
-            
-            accept = linmix_metro_update( logpost_new, logpost_old, seed )
-            
-            if accept then begin
+            if gibbs then begin
                 
-                naccept[3 + 2 * ngauss] = naccept[3 + 2 * ngauss] + 1L
-                wsqr[i] = wsqr0
-                logpost[i] = loglik + logprior_new
+                nu = ngauss + nuu
+                usqr0 = (nuu * wsqr[i] + total( (mu[*,i] - mu0[i])^2 )) / nu
                 
-            endif
+                repeat usqr[i] = usqr0 * nu / randomchi(seed, nu) $
+                  until usqr[i] le umax
+                
+            endif else begin
+                                ;do metropolis update
 
-        endelse
+                log_usqr = alog(usqr[i]) + sqrt(jvar_usqr) * randomn(seed)
+                usqr0 = exp(log_usqr)
+                
+                if usqr0 le umax then begin
+
+                    logprior_old = logprior_mixerr(mu[*,i], mu0[i], tausqr[*,i], usqr[i], wsqr[i])
+                    
+                    logpost[i] = loglik + logprior_old ;update posterior after gibbs step for mu0
+                    
+                    logprior_new = logprior_mixerr(mu[*,i], mu0[i], tausqr[*,i], usqr0, wsqr[i])
+                    
+                    logpost_new = loglik + logprior_new
+                    logpost_old = loglik + logprior_old
+                    
+                    log_jrat = log_usqr - alog(usqr[i])
+                    
+                    accept = linmix_metro_update( logpost_new, logpost_old, seed, log_jrat )
+                    
+                    if accept then begin
+                        
+                        naccept[3 + 2 * ngauss] = naccept[3 + 2 * ngauss] + 1L
+                        usqr[i] = usqr0
+                        logpost[i] = loglik + logprior_new
+                        
+                    endif
+
+                endif
+                
+            endelse
+            
+            if gibbs then begin
+                
+                alphaw = ngauss * nut / 2d + 1
+                betaw = 0.5 * nut * total(1d / tausqr[*,i])
+                
+                wsqr[i] = randomgam(seed, alphaw, betaw)
+                
+            endif else begin
+                
+                log_wsqr = alog(wsqr[i]) + sqrt(jvar_wsqr) * randomn(seed)
+                wsqr0 = exp(log_wsqr)
+                
+                logprior_old = logprior_mixerr(mu[*,i], mu0[i], tausqr[*,i], usqr[i], wsqr[i])
+                logprior_new = logprior_mixerr(mu[*,i], mu0[i], tausqr[*,i], usqr[i], wsqr0)
+                
+                logpost_new = loglik + logprior_new + log_wsqr
+                logpost_old = loglik + logprior_old + alog(wsqr[i])
+                
+                accept = linmix_metro_update( logpost_new, logpost_old, seed )
+                
+                if accept then begin
+                    
+                    naccept[4 + 2 * ngauss] = naccept[4 + 2 * ngauss] + 1L
+                    wsqr[i] = wsqr0
+                    logpost[i] = loglik + logprior_new
+                    
+                endif
+                
+            endelse
+
+        endif
 
     endfor
 
@@ -989,10 +1119,14 @@ repeat begin
         mug = mu
         tausqrg = tausqr
 
-        mu0g = mu0
-        usqrg = usqr
-        wsqrg = wsqr
+        if ngauss gt 1 then begin
+
+            mu0g = mu0
+            usqrg = usqr
+            wsqrg = wsqr
         
+        endif
+
         if metro then logpostg = logpost
 
     endif else begin
@@ -1005,9 +1139,13 @@ repeat begin
         mug = [[mug], [mu]]
         tausqrg = [[tausqrg], [tausqr]]
         
-        mu0g = [mu0g, mu0]
-        usqrg = [usqr, usqrg]
-        wsqrg = [wsqr, wsqrg]
+        if ngauss gt 1 then begin
+        
+            mu0g = [mu0g, mu0]
+            usqrg = [usqrg, usqr]
+            wsqrg = [wsqrg, wsqr]
+
+        endif
         
         if metro then logpostg = [logpostg, logpost]
 
@@ -1042,7 +1180,7 @@ repeat begin
                                 ;between xi and eta
         psi[*,*,5] = psi[*,*,1] * sqrt(psi[*,*,4] / (psi[*,*,1]^2 * psi[*,*,4] + psi[*,*,2]))
                                 ;do normalizing transforms before
-                                ;monitering convergence
+                                ;monitoring convergence
         psi[*,*,2] = alog(psi[*,*,2])
         psi[*,*,4] = alog(psi[*,*,4])
         psi[*,*,5] = linmix_atanh(psi[*,*,5])
@@ -1090,31 +1228,34 @@ repeat begin
 ;parameters
         
         jvar_ssqr = linmix_robsig( alog(sigsqrg) )^2
-;        jvar_ssqr = (jvar_ssqr * 2.4)^2 ;modify jumping variance for log-sigsqr
-        
+
                                 ;now modify covariance matrix for
                                 ;coefficient jumping kernel
         coefg = [[alphag], [betag]]
         
         jvar_coef = correlate( transpose(coefg), /covar)
-;        jvar_coef = 2.4^2 / 2 * jvar_coef
 
-        jvar_usqr = linmix_robsig( alog(usqrg) )^2
-;        jvar_usqr = jvar_usqr * 2.4^2
+        if ngauss gt 1 then begin
 
-        jvar_wsqr = linmix_robsig( alog(wsqrg) )^2
-;        jvar_wsqr = jvar_wsqr * 2.4^2
+            jvar_mu0 = linmix_robsig(mu0g)^2 * 2.4^2
 
-        if iter eq burnstop then burnin = 0
-        
-        if not silent and not burnin then begin
-            
-            print, 'Burn-in Complete'
-            iter = 0L
-            
+            jvar_usqr = linmix_robsig( alog(usqrg) )^2 * 2.4^2
+    
+            jvar_wsqr = linmix_robsig( alog(wsqrg) )^2 * 2.4^2
+
         endif
         
-        naccept = lonarr(4 + 2 * ngauss)
+        if iter eq burnstop then burnin = 0
+        
+        if not burnin then begin
+
+           if not silent then print, 'Burn-in Complete'
+
+           iter = 0L
+
+        endif
+
+        naccept = lonarr(5 + 2 * ngauss)
         burniter = burniter + 250L
         
     endif
@@ -1124,9 +1265,20 @@ endrep until convergence
 ndraw = iter * nchains / 2
 
 ;save posterior draws in a structure
-post = {alpha:0d, beta:0d, sigsqr:0d, pi:dblarr(ngauss), mu:dblarr(ngauss), $
-        tausqr:dblarr(ngauss), mu0:0d, usqr:0d, wsqr:0d, ximean:0d, xisig:0d, $
-        corr:0d}
+
+if ngauss gt 1 then begin
+
+    post = {alpha:0d, beta:0d, sigsqr:0d, pi:dblarr(ngauss), mu:dblarr(ngauss), $
+            tausqr:dblarr(ngauss), mu0:0d, usqr:0d, wsqr:0d, ximean:0d, xisig:0d, $
+            corr:0d}
+
+endif else begin
+    
+    post = {alpha:0d, beta:0d, sigsqr:0d, pi:dblarr(ngauss), mu:dblarr(ngauss), $
+            tausqr:dblarr(ngauss), ximean:0d, xisig:0d, corr:0d}
+
+endelse
+
 post = replicate(post, ndraw)
 
 post.alpha = alphag[(iter*nchains+1)/2:*]
@@ -1135,9 +1287,14 @@ post.sigsqr = sigsqrg[(iter*nchains+1)/2:*]
 post.pi = pig[*,(iter*nchains+1)/2:*]
 post.mu = mug[*,(iter*nchains+1)/2:*]
 post.tausqr = tausqrg[*,(iter*nchains+1)/2:*]
-post.mu0 = mu0g[(iter*nchains+1)/2:*]
-post.usqr = usqrg[(iter*nchains+1)/2:*]
-post.wsqr = wsqrg[(iter*nchains+1)/2:*]
+
+if ngauss gt 1 then begin
+
+    post.mu0 = mu0g[(iter*nchains+1)/2:*]
+    post.usqr = usqrg[(iter*nchains+1)/2:*]
+    post.wsqr = wsqrg[(iter*nchains+1)/2:*]
+
+endif
 
 post.ximean = total(post.pi * post.mu, 1) ;mean of xi   
 post.xisig = total(post.pi * (post.tausqr + post.mu^2), 1) - post.ximean^2

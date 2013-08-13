@@ -5,15 +5,16 @@
 ; PURPOSE:
 ;    Verify the values of the CHECKSUM and DATASUM keywords in a FITS header 
 ; EXPLANATION: 
-;     Follows the 23 May 2002 version of the FITS checksum proposal at 
-;     http://heasarc.gsfc.nasa.gov/docs/heasarc/fits/checksum.html   
+;     Follows the 2007 version of the FITS checksum proposal at 
+;     http://fits.gsfc.nasa.gov/registry/checksum.html
 ; 
 ; CALLING SEQUENCE:
 ;    result = FITS_TEST_CHECKSUM(HDR, [ DATA, ERRMSG=, /FROM_IEEE ])
 ; INPUTS:
 ;    HDR - FITS header (vector string)
 ; OPTIONAL DATA:
-;    DATA - data array associated with the FITS header.   If not supplied, or
+;    DATA - data array associated with the FITS header.   An IDL structure is 
+;           not allowed.    If not supplied, or
 ;           set to a scalar, then there is assumed to be no data array 
 ;           associated with the FITS header.
 ; RESULT:
@@ -53,13 +54,16 @@
 ;     Return quietly if CHECKSUM keywords not found W. Landsman May 2003
 ;     Add /NOSAVE to CHECKSUM32 calls when possible W. Landsman Sep 2004
 ;-
+  On_error,2 
+  compile_opt idl2 
+  
   if N_Params() LT 1 then begin
       print,'Syntax - result = FITS_TEST_CHECKSUM(Hdr, [Data,' +  $
                                ' ERRMSG=, /FROM_IEEE ])'
       return, 0
   endif
   result = 1
-  printerr = not arg_present(errmsg)
+  printerr = ~arg_present(errmsg)
   checksum = sxpar(hdr,'CHECKSUM', Count = N_checksum)
   datasum = sxpar(hdr,'DATASUM', Count = N_datasum)
   if (N_checksum EQ 0) then begin

@@ -13,7 +13,7 @@
 ; CALLING SEQUENCE:
 ;       kstwo, data1, data2, D, prob
 ;
-; INPUT PARAMATERS:
+; INPUT PARAMETERS:
 ;       data1 -  vector of data values, at least 4 data values must be included
 ;               for the K-S statistic to be meaningful
 ;       data2 -  second set of data values, does not need to have the same 
@@ -42,11 +42,13 @@
 ; REVISION HISTORY:
 ;       Written     W. Landsman                August, 1992
 ;       FP computation of N_eff      H. Ebeling/W. Landsman  March 1996
-;       Converted to IDL V5.0   W. Landsman   September 1997
 ;       Fix for arrays containing equal values J. Ballet/W. Landsman Oct. 2001
+;       Fix index when maximum difference is at array end Renbin Yan  Dec 2008
+;       Handle large number when computing N_err  D. Schnitzeler/WL  Sep 2010
 ;-
   On_error, 2
-
+  compile_opt idl2 
+  
  if ( N_params() LT 4 ) then begin
     print,'Syntax - KSTWO, data1, data2, d, prob'
     return
@@ -63,8 +65,8 @@
  sortdata1 = data1[ sort( data1 ) ]        ;Sort input arrays into 
  sortdata2 = data2[ sort( data2 ) ]        ;ascending order
 
- fn1 = ( findgen( n1 )  ) / n1
- fn2 = ( findgen( n2 )  ) / n2
+ fn1 = ( findgen( n1 +1 )  ) / n1          ;updated Dec 2008
+ fn2 = ( findgen( n2 +1)  ) / n2
 
  j1 = 0l & j2 = 0l
  id1 = lonarr(n1+n2)  & id2 = id1
@@ -88,10 +90,10 @@
  id1 = id1[0:i-1]   &  id2 = id2[0:i-1]
 
 ; The K-S statistic D is the maximum difference between the two distribution
-; funtions
+; functions
 
  D = max( abs( fn1[id1] - fn2[id2] ) ) 
- N_eff =  n1*n2/ float(n1 + n2)              ;Effective # of data points
+ N_eff =  long64(n1)*n2/ float(n1 + n2)           ;Effective # of data points
  PROB_KS, D, N_eff, prob                ;Compute significance of statistic
 
  return

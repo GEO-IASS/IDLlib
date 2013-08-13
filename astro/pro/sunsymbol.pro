@@ -32,27 +32,41 @@ function sunsymbol, FONT=font
 ;
 ; EXAMPLE:
 ;	To make the X-axis of a plot read  M/M_Sun
-;	IDL>  plot,indgen(10),xtit = 'M / M' + sunsymbol()
+;	IDL>  cgplot,indgen(10),xtit = 'M / M' + sunsymbol()
 ;
 ; RESTRICTIONS:
 ;	(1) The postscript output does not have the dot perfectly centered in 
-;		the circle
+;		the circle.   For a better symbol, consider postprocessing with
+;               psfrag (see http://www.astrobetter.com/idl-psfrag/ ).
 ;	(2) SUNSYMBOL() includes subscript output positioning commands in the 
 ;		output string.
-;       (3) True type fonts (!p.font = 1) are not supported.   If you want
-;           to make a Sun symbol with true type fonts, see the discussion of
-;           installing the Marvosym font at http://tinyurl.com/mst5q 
+;       (3) For true-type fonts(Font=1) and IDL Versions prior to V8.2,
+;           you must first use the SET_FONT keyword to Device to use a font
+;           that includes the Sun Symbol, e.g. "arial Unicode MS" or
+;           the Apple Symbols font.
+;           http://www.idlcoyote.com/misc_tips/sun_symbol.html
+;           In V8.2 and later, SUNSYMBOL() will automatically convert to the
+;           DejaVuSans font to create a Sun symbol (and then return to the 
+;           input font).
+;       (4) Also look at CGSYMBOL http://www.idlcoyote.com/programs/cgsymbol.pro
+;           which includes 'sun' as one if the symbols.
 ; REVISION HISTORY:
 ;	Written,  W. Landsman,    HSTX          April, 1997
-;	Converted to IDL V5.0   W. Landsman   September 1997
 ;       Allow font keyword to be passed.  T. Robishaw Apr. 2006
+;       Since IDL8.2 a Sun symbol is available for true-type fonts Feb 2013
 ;-
  On_error,2
+ compile_opt idl2
 
  if N_elements(font) eq 0 then font = !p.font
  if (font EQ -1) then return,'!D!9n!N!X' else $
  if (!D.NAME NE 'PS')  then return,'!DSun!N' else begin
 
+;Since 8.2 we can use !10 to select DejaVuSans font and then use the 
+;unicode Sun symbol
+ if FONT EQ 1 then $ 
+     if (!VERSION.RELEASE GE '8.2') then return,'!10!D!Z(2609)!X!N' else $
+     return,'!D!Z(2609)!X!N'
 ;Want to use /AVANTGARDE,/BOOK which is the default font 17, but to make sure
 ;that ISOLATIN encoding is turned off, we'll define our own font.
 

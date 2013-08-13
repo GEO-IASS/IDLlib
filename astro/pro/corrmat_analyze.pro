@@ -44,7 +44,7 @@ pro corrmat_analyze, correl_mat, xoffset_optimum, yoffset_optimum, $
 ;	yoffset_optimum = optimal Y pixel offset.
 ;	max_corr = the maximal correlation corresponding to optimal offset.
 ;	edge = 1 if maximum is at edge of correlation domain, otherwise=0.
-;	plateau = 1 if maximum is in a plateua of correlation function, else=0.
+;	plateau = 1 if maximum is in a plateau of correlation function, else=0.
 ;
 ; PROCEDURE:
 ;	Find point of maximum cross-correlation and calc. corresponding offsets.

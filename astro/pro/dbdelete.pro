@@ -51,6 +51,7 @@ pro dbdelete, list, name, DEBUG = debug
 ;       Don't call DBINDEX if no indexed items  W. Landsman May 2006  
 ;       Use TRUNCATE_LUN if V5.6 or later W. Landsman   Sep 2006 
 ;       Fix problem when deleting last entry   W. Landsman Mar 2007
+;       Assume since V5.6 so TRUNCATE_LUN is available   W. Landsman
 ;       
 ;-
 ;-------------------------------------------------------------------------------
@@ -95,11 +96,11 @@ pro dbdelete, list, name, DEBUG = debug
 
   outrec = 0L                           ; Create counter of output record
   len = db_info('length')
-   
+ 
 ; loop on entries in data base
 
   qnentry = db_info('ENTRIES',0)
- 
+  
   for i = 1L, qnentry do begin
 
         ; Is it to be kept?
@@ -118,21 +119,17 @@ pro dbdelete, list, name, DEBUG = debug
                         qdbrec[outrec] = entry
                 endif
         endif
-
   endfor
 
 ; Update adjusted total number of entries.
-
 
   qdb[84] = byte( outrec,0,4 )
 
 ; Truncate the .dbf file at the current position.
 
-  if !VERSION.RELEASE GE '5.6' then begin
-       unit = db_info('unit_dbf')
-       point_lun, unit, long64(outrec+1)*len
-       truncate_lun, unit
-  endif else message,'Entry deleted but need at least V5.6 to compress',/INF
+  unit = db_info('unit_dbf')
+  point_lun, unit, long64(outrec+1)*len
+  truncate_lun, unit
 
 ; Update index file
 

@@ -43,7 +43,7 @@
 ; CALLING SEQUENCE: 
 ;       FXBREADM, UNIT, COL, DATA1, [ DATA2, ... DATA48, ROW=, BUFFERSIZE = ]
 ;           /NOIEEE, /NOSCALE, /VIRTUAL, NANVALUE=, PASS_METHOD = POINTERS=, 
-;           ERRMSG = , WARNMSG = , STATUS = ]
+;           ERRMSG = , WARNMSG = , STATUS = , /DEFAULT_FLOAT]
 ;
 ; INPUT PARAMETERS : 
 ;       UNIT    = Logical unit number corresponding to the file containing the
@@ -65,6 +65,8 @@
 ;                 starting from row one, or a two element array containing a
 ;                 range of row numbers to read.  If not passed, then the entire
 ;                 column is read in.
+;       /DEFAULT_FLOAT = If set, then scaling with TSCAL/TZERO is done with
+;                 floating point rather than double precision.
 ;       /NOIEEE = If set, then then IEEE floating point data will not
 ;                be converted to the host floating point format (and
 ;                this by definition implies NOSCALE).  The user is
@@ -130,7 +132,7 @@
 ;       The row number must be consistent with the number of rows stored in the
 ;       binary table header.
 ;
-;       Generaly speaking, FXBREADM will be faster than iterative
+;       Generally speaking, FXBREADM will be faster than iterative
 ;       calls to FXBREAD when (a) a large number of columns is to be
 ;       read or (b) the size in bytes of each cell is small, so that
 ;       the overhead of the FOR loop in FXBREAD becomes significant.
@@ -144,7 +146,7 @@
 ; Prev. Hist. : 
 ;       C. Markwardt, based in concept on FXBREAD version 12 from
 ;                              IDLASTRO, but with significant and
-;                              major changes to accomodate the
+;                              major changes to accommodate the
 ;                              multiple row/column technique.  Mostly
 ;                              the parameter checking and general data
 ;                              flow remain.
@@ -159,7 +161,14 @@
 ;   Fix bug in handling of FOUND and numeric columns, 
 ;       C. Markwardt 12 May 2003
 ;   Removed pre-V5.0 HANDLE options  W. Landsman July 2004
-;
+;   Fix bug when HANDLE options were removed, July 2004
+;   Handle special cases of TSCAL/TZERO which emulate unsigned
+;      integers, Oct 2003
+;   Add DEFAULT_FLOAT keyword to select float values instead of double
+;      for TSCAL'ed, June 2004
+;   Read 64bit integer columns, E. Hivon, Mar 2008
+;   Add support for columns with TNULLn keywords, C. Markwardt, Apr 2010
+;   Add support for files larger than 2 GB, C. Markwardt, 2012-04-17
 ;
 ;-
 ;
@@ -169,13 +178,15 @@
 ;; IDL variables.
 PRO FXBREADM_CONV, BB, DD, CTYPE, PERROW, NROWS, $
                    NOIEEE=NOIEEE, NOSCALE=NOSCALE, VARICOL=VARICOL, $
-                   NANVALUE=NANVALUE, TZERO=TZERO, TSCAL=TSCAL
+                   NANVALUE=NANVALUE, TZERO=TZERO, TSCAL=TSCAL, $
+                   TNULL_VALUE=TNULL, TNULL_FLAG=TNULLQ, $
+                   DEFAULT_FLOAT=DF
 
   COMMON FXBREADM_CONV_COMMON, DTYPENAMES
   IF N_ELEMENTS(DTYPENAMES) EQ 0 THEN $
     DTYPENAMES = [ '__BAD', 'BYTE', 'FIX', 'LONG', $
                    'FLOAT', 'DOUBLE', 'COMPLEX', 'STRING', $
-                   '__BAD', 'DCOMPLEX' ]
+                   '__BAD', 'DCOMPLEX', '__BAD', '__BAD', '__BAD', '__BAD', 'LONG64' ]
   
   TYPENAME = DTYPENAMES[CTYPE]
 
@@ -191,9 +202,16 @@ PRO FXBREADM_CONV, BB, DD, CTYPE, PERROW, NROWS, $
   COUNT = 0L
   CASE 1 OF
       ;; Integer types
-      (CTYPE EQ 2 OR CTYPE EQ 3): BEGIN
+      (CTYPE EQ 2 OR CTYPE EQ 3 or ctype eq 14): BEGIN
           IF NOT KEYWORD_SET(NOIEEE) OR KEYWORD_SET(VARICOL) THEN $
             IEEE_TO_HOST, DD 
+          ;; Check for TNULL values
+          ;; We will convert to NAN values later (or if the user
+          ;; requested a different value we will use that)
+          IF KEYWORD_SET(TNULLQ) THEN BEGIN
+              W = WHERE(DD EQ TNULL,COUNT)
+              IF N_ELEMENTS(NANVALUE) EQ 0 THEN NANVALUE = !VALUES.D_NAN
+          ENDIF
       END
 
       ;; Floating and complex types
@@ -216,8 +234,25 @@ PRO FXBREADM_CONV, BB, DD, CTYPE, PERROW, NROWS, $
   IF ((NOT KEYWORD_SET(NOIEEE) AND NOT KEYWORD_SET(NOSCALE)) AND $
       (NOT KEYWORD_SET(VARICOL)) AND $
       (N_ELEMENTS(TZERO) EQ 1 AND N_ELEMENTS(TSCAL) EQ 1)) THEN BEGIN
-      IF (TSCAL[0] NE 0) AND (TSCAL[0] NE 1) THEN DD = TSCAL[0]*DD
-      IF TZERO[0] NE 0 THEN DD = DD + TZERO[0]
+
+      IF KEYWORD_SET(DF) THEN BEGIN
+          ;; Default to float
+          TSCAL = FLOAT(TSCAL)
+          TZERO = FLOAT(TZERO)
+      ENDIF
+
+      FORWARD_FUNCTION UINT, ULONG
+      IF CTYPE EQ 2 AND TSCAL[0] EQ 1 AND TZERO[0] EQ 32768 THEN BEGIN
+          ;; SPECIAL CASE: Unsigned 16-bit integer
+          DD = UINT(DD) - UINT(32768)
+      ENDIF ELSE IF CTYPE EQ 3 AND TSCAL[0] EQ 1 AND $
+        TZERO[0] EQ 2147483648D THEN BEGIN
+          ;; SPECIAL CASE: Unsigned 32-bit integer
+          DD = ULONG(DD) - ULONG(2147483648)
+      ENDIF ELSE BEGIN
+          IF (TSCAL[0] NE 0) AND (TSCAL[0] NE 1) THEN DD = TSCAL[0]*DD
+          IF TZERO[0] NE 0 THEN DD = DD + TZERO[0]
+      ENDELSE
   ENDIF
 
 ;
@@ -232,9 +267,9 @@ PRO FXBREADM, UNIT, COL, $
               D10, D11, D12, D13, D14, D15, D16, D17, D18, D19, $
               D20, D21, D22, D23, D24, D25, D26, D27, D28, D29, $
               D30, D31, D32, D33, D34, D35, D36, D37, D38, D39, $
-              D40, D41, D42, D43, D44, D45, D46, D47, D48, $
+              D40, D41, D42, D43, D44, D45, D46, D47, $
               ROW=ROW, VIRTUAL=VIR, DIMENSIONS=DIM, $
-              NOSCALE=NOSCALE, NOIEEE=NOIEEE, $
+              NOSCALE=NOSCALE, NOIEEE=NOIEEE, DEFAULT_FLOAT=DEFAULT_FLOAT, $
               PASS_METHOD=PASS_METHOD, POINTERS=POINTERS, $
               NANVALUE=NANVALUE, BUFFERSIZE=BUFFERSIZE, $
               ERRMSG=ERRMSG, WARNMSG=WARNMSG, STATUS=OUTSTATUS
@@ -279,8 +314,8 @@ PRO FXBREADM, UNIT, COL, $
         ENDIF
 
         NP = N_ELEMENTS(POINTERS)
-
-             IF NP EQ 0 THEN POINTERS = PTRARR(NUMCOLS, /ALLOCATE_HEAP)
+        IF PASS EQ 'POINTER' THEN BEGIN
+            IF NP EQ 0 THEN POINTERS = PTRARR(NUMCOLS, /ALLOCATE_HEAP)
             NP = N_ELEMENTS(POINTERS)
             SZ = SIZE(POINTERS)
             IF SZ[SZ[0]+1] NE 10 THEN BEGIN
@@ -304,6 +339,8 @@ PRO FXBREADM, UNIT, COL, $
             WH = WHERE(PTR_VALID(POINTERS) EQ 0, CT)
             IF CT GT 0 THEN POINTERS[WH] = PTRARR(CT, /ALLOCATE_HEAP)
                 
+        ENDIF
+
 
 ;
 ;  Find the logical unit number in the FXBINTABLE common block.
@@ -454,10 +491,10 @@ PRO FXBREADM, UNIT, COL, $
 ;  If ROW was not passed, then set it equal to the entire range.  Otherwise,
 ;  extract the range.
 ;
-        IF N_ELEMENTS(ROW) EQ 0 THEN ROW = [1L, NAXIS2[ILUN]]
+        IF N_ELEMENTS(ROW) EQ 0 THEN ROW = [1LL, NAXIS2[ILUN]]
         CASE N_ELEMENTS(ROW) OF
-                1:  ROW2 = LONG(ROW[0])
-                2:  ROW2 = LONG(ROW[1])
+                1:  ROW2 = LONG64(ROW[0])
+                2:  ROW2 = LONG64(ROW[1])
                 ELSE:  BEGIN
                         MESSAGE = 'ROW must have one or two elements'
                         IF N_ELEMENTS(ERRMSG) NE 0 THEN BEGIN
@@ -466,7 +503,7 @@ PRO FXBREADM, UNIT, COL, $
                         END ELSE MESSAGE, MESSAGE
                         END
         ENDCASE
-        ROW1 = LONG(ROW[0])
+        ROW1 = LONG64(ROW[0])
 ;
 ;  If ROW represents a range, then make sure that the row range is legal, and
 ;  that reading row ranges is allowed (i.e., the column is not variable length.
@@ -505,11 +542,14 @@ PRO FXBREADM, UNIT, COL, $
 ;
 ;  Compose information about the output
 ;
+        HEADER = HEAD[*,ILUN]
         COLNDIM = LONARR(NUMCOLS)
         COLDIM  = LONARR(NUMCOLS, 20) ;; Maximum of 20 dimensions in output
         COLTYPE = LONARR(NUMCOLS)
         BOFF1   = LONARR(NUMCOLS)
         BOFF2   = LONARR(NUMCOLS)
+        TNULL_FLG = INTARR(NUMCOLS) ;; 1 if TNULLn column is present
+        TNULL_VAL = DBLARR(NUMCOLS) ;; value of TNULLn column if present
         NROWS = ROW2-ROW1+1
         FOR I = 0L, NUMCOLS-1 DO BEGIN
 
@@ -572,6 +612,17 @@ PRO FXBREADM, UNIT, COL, $
             ELSE $
               BOFF2[I] = BYTOFF[ICOL[I]+1,ILUN]-1
 
+            ;; TNULLn keywords for integer type columns
+            IF (COLTYPE[I] GE 1 AND COLTYPE[I] LE 3) OR $
+              (COLTYPE[I] GE 12 AND COLTYPE[I] LE 15) THEN BEGIN
+                TNULLn = 'TNULL'+STRTRIM(ICOL[I]+1,2)
+                VALUE = FXPAR(HEADER,TNULLn, Count = N_VALUE)
+                IF N_VALUE GT 0 THEN BEGIN
+                    TNULL_FLG[I] = 1
+                    TNULL_VAL[I] = VALUE
+                ENDIF
+            ENDIF
+            
             LOOP_END_DIMS:
 
         ENDFOR
@@ -616,10 +667,10 @@ PRO FXBREADM, UNIT, COL, $
 ;
 ;  Find the position of the first byte of the data array in the file.
 ;
-        OFFSET0 = NHEADER[ILUN] + NAXIS1[ILUN]*(ROW1-1)
-        POS = 0L
+        OFFSET0 = NHEADER[ILUN] + NAXIS1[ILUN]*(ROW1-1LL)
+        POS = 0LL
         NROWS0 = NROWS
-        J = 0L
+        J = 0LL
         FIRST = 1
         ;; Here, we constrain the buffer to be at least 16 rows long.
         ;; If we fill up 32 kB with fewer than 16 rows, then there
@@ -645,6 +696,8 @@ PRO FXBREADM, UNIT, COL, $
         BB = BYTARR(NAXIS1[ILUN], NR)
         POINT_LUN, UNIT, OFFSET0+OFFSET1
         READU, UNIT, BB
+;        FXGSEEK, UNIT, OFFSET0+OFFSET1
+;        FXGREAD, UNIT, BB
 
 ;
 ;  Now select out the desired columns
@@ -672,7 +725,9 @@ PRO FXBREADM, UNIT, COL, $
             FXBREADM_CONV, BB[BOFF1[I]:BOFF2[I], *], DD, COLTYPE[I], PERROW, NR,$
               NOIEEE=KEYWORD_SET(NOIEEE), NOSCALE=KEYWORD_SET(NOSCALE), $
               TZERO=TZERO[ICOL[I], ILUN], TSCAL=TSCAL[ICOL[I], ILUN], $
-              VARICOL=VARICOL[I], _EXTRA=EXTRA
+              VARICOL=VARICOL[I], DEFAULT_FLOAT=DEFAULT_FLOAT, $
+              TNULL_VALUE=TNULL_VAL[I], TNULL_FLAG=TNULL_FLG[I], $
+              _EXTRA=EXTRA
 
             ;; Initialize the output variable on the first chunk
             IF FIRST THEN BEGIN
@@ -724,13 +779,13 @@ PRO FXBREADM, UNIT, COL, $
             NTOT  = ROUND(TOTAL(NVALS)) ;; Total number of values
             IF NTOT EQ 0 THEN BEGIN
                 DD = {N_ELEMENTS: 0L, N_ROWS: NROWS0, $
-                      INDICES: LONARR(NROWS0+1), DATA: 0L}
+                      INDICES: LON64ARR(NROWS0+1), DATA: 0L}
                 GOTO, FILL_VARICOL
             ENDIF
 
             ;; Compute the width in bytes of the data value
             TYPE = IDLTYPE[ICOL[I], ILUN]
-            WID = WIDARR[TYPE < 10]
+            WID = LONG64(WIDARR[TYPE < 10])
             IF WID EQ 0 THEN BEGIN
                 OUTSTATUS[I] = 0
                 MESSAGE = 'ERROR: Column '+COLNAMES[I]+' has unknown data type'
@@ -741,11 +796,11 @@ PRO FXBREADM, UNIT, COL, $
             ENDIF
 
             ;; Coalesce the data pointers
-            BOFF1 = PDATA[1,*]
+            BOFF1 = LONG64(PDATA[1,*])
             BOFF2 = BOFF1 + NVALS*WID
             WH = WHERE(BOFF1[1:*] NE BOFF2, CT)
-            IF CT GT 0 THEN BI = [-1L, WH, N_ELEMENTS(BOFF1)-1] $
-            ELSE            BI = [-1L,     N_ELEMENTS(BOFF1)-1]
+            IF CT GT 0 THEN BI = [-1LL, WH, N_ELEMENTS(BOFF1)-1] $
+            ELSE            BI = [-1LL,     N_ELEMENTS(BOFF1)-1]
             CT = CT + 1
 
             ;; Create the output array
@@ -754,9 +809,9 @@ PRO FXBREADM, UNIT, COL, $
             BB = BYTARR(NB)                           ;; Byte array
 
             ;; Initialize the counter variables used in the read-loop
-            CC = 0L & CC1 = 0L & K = 0L
+            CC = 0LL & CC1 = 0LL & K = 0LL
             BUFFROWS = ROUND(BUFFERSIZE/WID) > 128L
-            BASE = NHEADER[ILUN]+HEAP[ILUN]
+            BASE = LONG64(NHEADER[ILUN]+HEAP[ILUN])
 
             ;; Read data from file
             WHILE CC LT NB DO BEGIN
@@ -765,6 +820,8 @@ PRO FXBREADM, UNIT, COL, $
 
                 POINT_LUN, UNIT, BASE+BOFF1[BI[K]+1]+CC1
                 READU, UNIT, BB1
+;                FXGSEEK, UNIT, BASE+BOFF1[BI[K]+1]+CC1
+;                FXGREAD, UNIT, BB1
                 BB[CC] = TEMPORARY(BB1)
 
                 CC  = CC  + NB1
@@ -782,7 +839,7 @@ PRO FXBREADM, UNIT, COL, $
             FXBREADM_CONV, BB, DD, TYPE, NTOT, 1L, $
               NOIEEE=KEYWORD_SET(NOIEEE), NOSCALE=KEYWORD_SET(NOSCALE), $
               TZERO=TZERO[ICOL[I], ILUN], TSCAL=TSCAL[ICOL[I], ILUN], $
-              _EXTRA=EXTRA
+              DEFAULT_FLOAT=DEFAULT_FLOAT, _EXTRA=EXTRA
             
             ;; Ensure the correct dimensions, now that we know them
             COLNDIM[I] = 1
@@ -790,8 +847,8 @@ PRO FXBREADM, UNIT, COL, $
             
             ;; Construct the indices; unfortunately we need to make an
             ;; accumulant with a FOR loop
-            INDICES = LONARR(NROWS0+1)
-            FOR K = 1L, NROWS0 DO $
+            INDICES = LON64ARR(NROWS0+1)
+            FOR K = 1LL, NROWS0 DO $
               INDICES[K] = INDICES[K-1] + NVALS[K-1]
 
             ;; Construct a structure with additional data

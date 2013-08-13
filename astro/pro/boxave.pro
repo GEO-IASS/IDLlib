@@ -42,7 +42,7 @@ function boxave, array, xsize, ysize
 ;       BOXAVE boxaverages all points simultaneously using vector subscripting
 ;
 ; NOTES:
-;       If im_int is a 512 x 512 integer array, then the two statements
+;       If im_int is a 512 x 512 integer (16 bit) array, then the two statements
 ;
 ;               IDL> im = fix(round(rebin(float(im_int), 128, 128)))
 ;               IDL> im  = boxave( im_int,4)

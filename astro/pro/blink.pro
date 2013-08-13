@@ -77,7 +77,7 @@ device, window = opnd
 ncol = intarr(n_wndw)
 nrow = ncol
 for i=0,n_wndw-1 do begin
-        if not opnd[wndw[i]] then $
+        if ~opnd[wndw[i]] then $
             message,'ERROR - Window '+ strtrim(wndw[i],2) + ' is not open'
 	wset, wndw[i]
 	ncol[i] = !d.x_vsize

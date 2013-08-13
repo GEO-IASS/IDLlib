@@ -23,7 +23,8 @@ FUNCTION FXMOVE, UNIT, EXTEN, SILENT = Silent, EXT_NO = ext_no, ERRMSG=errmsg
 ;                 returned to the user in this parameter rather than
 ;                 depending on the MESSAGE routine in IDL.  If no errors are
 ;                 encountered, then a null string is returned.
-;
+;       EXT_NO - Extension number, scalar integer, useful if the user supplied 
+;                an extension name in the EXTEN parameter
 ; RETURNS:
 ;     0 if successful.
 ;    -1 if an error is encountered.
@@ -44,10 +45,17 @@ FUNCTION FXMOVE, UNIT, EXTEN, SILENT = Silent, EXT_NO = ext_no, ERRMSG=errmsg
 ;      Save time by not reading the full header  W. Landsman   Feb. 2003
 ;      Allow extension name to be specified, added EXT_NO, ERRMSG keywords
 ;         W. Landsman  December 2006
-;      Make search for EXTNAME case-independet  W.Landsman March 2007 
+;      Make search for EXTNAME case-independent  W.Landsman March 2007 
+;      Avoid round-off error for very large extensions N. Piskunov Dec 2007
+;      Assume since V6.1 (/INTEGER keyword available to PRODUCT() ) Dec 2007
+;      Capture error message from MRD_HREAD (must be used with post-June 2009
+;        version of MRD-HREAD)   W. Landsman  July 2009
 ;-
+     On_error, 2
+     compile_opt idl2
+
          DO_NAME = SIZE( EXTEN,/TNAME) EQ 'STRING'
-	 PRINT_ERROR = NOT ARG_PRESENT(ERRMSG)
+	 PRINT_ERROR = ~ARG_PRESENT(ERRMSG)
          ERRMSG = ''
          IF DO_NAME THEN BEGIN 
 	              FIRSTBLOCK = 0
@@ -78,8 +86,13 @@ FUNCTION FXMOVE, UNIT, EXTEN, SILENT = Silent, EXT_NO = ext_no, ERRMSG=errmsg
                 ; Can't use FXHREAD to read from pipe, since it uses
                 ; POINT_LUN.  So we read this in ourselves using mrd_hread
 
-                MRD_HREAD, UNIT, HEADER, STATUS, SILENT = Silent, FIRSTBLOCK=FIRSTBLOCK
-                IF STATUS LT 0 THEN RETURN, -1
+                MRD_HREAD, UNIT, HEADER, STATUS, SILENT = Silent, $
+		    FIRSTBLOCK=FIRSTBLOCK, ERRMSG = ERRMSG
+		   
+                IF STATUS LT 0 THEN BEGIN 
+		    IF PRINT_ERROR THEN MESSAGE,ERRMSG   ;Typo fix 04/10
+		    RETURN, -1
+		ENDIF    
                         
                 ; Get parameters that determine size of data
                 ; region.
@@ -102,21 +115,21 @@ FUNCTION FXMOVE, UNIT, EXTEN, SILENT = Silent, EXT_NO = ext_no, ERRMSG=errmsg
                 
                 IF NAXIS GT 0 THEN BEGIN 
                         DIMS = FXPAR(HEADER,'NAXIS*')           ;Read dimensions
-                        NDATA = PRODUCT(DIMS)                        
+			NDATA = PRODUCT(DIMS,/INTEGER) 
                 ENDIF ELSE NDATA = 0
                 
-                NBYTES = (ABS(BITPIX) / 8) * GCOUNT * (PCOUNT + NDATA)
+                NBYTES = LONG64(ABS(BITPIX) / 8) * GCOUNT * (PCOUNT + NDATA)
 ;
 ;  Move to the next extension header in the file.
 ;
-                NREC = LONG((NBYTES + 2879) / 2880)
-                
+                NREC = (NBYTES + 2879) / 2880
                 MRD_SKIP, UNIT, NREC*2880L 
 
         ENDFOR
 	        
         RETURN, 0
 ALLOW_PLUN:
+        
         ERRMSG =  $
 	'Extension name cannot be specified unless POINT_LUN access is available'
 	if PRINT_ERROR then message,errmsg	

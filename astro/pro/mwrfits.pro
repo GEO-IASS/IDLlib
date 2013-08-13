@@ -4,13 +4,16 @@
 ; PURPOSE:
 ;       Write all standard FITS data types from input arrays or structures.
 ;
+; EXPLANATION:
+;       Must be used with a post-October 2009 version of FXADDPAR.
+;
 ; CALLING SEQUENCE:
 ;       MWRFITS, Input, Filename, [Header],
 ;                       /LSCALE , /ISCALE, /BSCALE, 
 ;                       /USE_COLNUM, /Silent, /Create, /No_comment, /Version, $
 ;                       Alias=, /ASCII, Separator=, Terminator=, Null=,
 ;                       /Logical_cols, /Bit_cols, /Nbit_cols, 
-;                       Group=, Pscale=, Pzero=
+;                       Group=, Pscale=, Pzero=, Status=
 ;
 ; INPUTS:
 ;       Input = Array or structure to be written to FITS file.
@@ -96,7 +99,7 @@
 ;                is greater than 8, then the first dimension of the array 
 ;                should match the number of input bytes per row.
 ;       BSCALE   Scale floats, longs, or shorts to unsigned bytes (see LSCALE)
-;       CREATE   If this keyword is non-zero, then a new FITS file will
+;       /CREATE   If this keyword is non-zero, then a new FITS file will
 ;                be created regardless of whether the file currently
 ;                exists.  Otherwise when the file already exists,
 ;                a FITS extension will be appended to the existing file
@@ -109,11 +112,11 @@
 ;                of the Input array.
 ;       ISCALE   Scale floats or longs to short integer (see LSCALE)
 ;       LOGICAL_COLS=  An array of indices of the logical column numbers.
-;                These should start with the first column having index 0.
+;                These should start with the first column having index *1*.
 ;                The structure element should either be an array of characters
 ;                with the values 'T' or 'F', or an array of bytes having the 
-;                values byte('T'), byte('F') or 0b.     The use of bytes allows
-;                the specification of undefined values (0b).
+;                values byte('T')=84b, byte('F')=70b or 0b.     The use of bytes
+;                allows the specification of undefined values (0b).
 ;       LSCALE   Scale floating point numbers to long integers.
 ;                This keyword may be specified in three ways.
 ;                /LSCALE (or LSCALE=1) asks for scaling to be automatically
@@ -140,7 +143,7 @@
 ;       Separator= This keyword can be specified as a string which will
 ;                be used to separate fields in ASCII tables.  By default
 ;                fields are separated by a blank.
-;       SILENT   Suppress informative messages.  Errors will still
+;       /SILENT   Suppress informative messages.  Errors will still
 ;                be reported.
 ;       Terminator= This keyword can be specified to provide a string which
 ;                will be placed at the end of each row of an ASCII table.
@@ -155,6 +158,9 @@
 ;                for the number of columns in the table.
 ;       Version   Print the version number of MWRFITS.
 ;
+; OPTIONAL OUTPUT KEYWORD:
+;       Status - 0 if FITS file is successfully written, -1 if there is a
+;                a problem (e.g. nonexistent directory, or no write permission)
 ; EXAMPLE:
 ;       Write a simple array:
 ;            a=fltarr(20,20)
@@ -181,11 +187,7 @@
 ;       single, simple interface to writing all common types of FITS data.
 ;       Given the number of options within the program and the
 ;       variety of IDL systems available it is likely that a number
-;       of bugs are yet to be uncovered.  If you find an anomaly
-;       please send a report to:
-;           Tom McGlynn
-;           NASA/GSFC Code 660.2
-;           tam@silk.gsfc.nasa.gov (or 301-286-7743)
+;       of bugs are yet to be uncovered. 
 ;
 ; PROCEDURES USED:
 ;       FXPAR(), FXADDPAR
@@ -229,7 +231,7 @@
 ;               Fixed problem in creating dummy dataset when passing undefined
 ;               data, caused by an update to FXADDPAR routine.
 ;       Version 1.2.1 Stephane Beland 2003-09-10
-;               Exit gracefully if write priveleges unavailable
+;               Exit gracefully if write privileges unavailable
 ;       Version 1.3 Wayne Landsman 2003-10-24
 ;               Don't use EXECUTE() statement if on a virtual machine
 ;       Version 1.3a Wayne Landsman 2004-5-21
@@ -255,11 +257,30 @@
 ;               Assume since V5.5, remove VMS support
 ;       Version 1.6a  W. Landsman  2006-09-22
 ;               Don't right-justify strings 
+;       Version 1.7  W. Landsman  2009-01-12
+;               Added STATUS output keyword
+;       Version 1.7a W. Landsman 2009-04-10
+;               Since V6.4 strings are no longer limited to 1024
+;               elements 
+;       Version 1.8 Pierre Chanial 2009-06-23
+;               trim alias, implement logical TFORM 'L', don't
+;               add space after tform key.
+;       Version 1.9 W. Landsman 2009-07-20
+;               Suppress compilation messages of supporting routines
+;       Version 1.10 W. Landsman 2009-09-30
+;               Allow TTYPE values of 'T' and 'F', fix USE_COLNUM for bin tables
+;       Version 1.11 W. Landsman 2010-11-18
+;               Allow LONG64 number of bytes, use V6.0 notation 
+;       Version 1.11a W. Landsman 2012-08-12
+;               Better documentation, error checking for logical columns
+;       Version 1.11b M. Haffner/W.L. 2012-10-12
+;     
 ;-
 
 ; What is the current version of this program?
 function mwr_version
-    return, '1.6a'
+     compile_opt idl2,hidden
+    return, '1.11b'
 end
     
 
@@ -267,20 +288,20 @@ end
 ; or just return 0 if the type is not unsigned.
 
 function mwr_unsigned_offset, type
-               
-    if (type eq 12) then begin
-       return, uint(32768)
-    endif else if (type eq 13) then begin
-       return, ulong('2147483648')
-    endif else if (type eq 15) then begin
-       return, ulong64('9223372036854775808')
-    endif
-    return, 0
+     compile_opt idl2,hidden
+     
+    case type of            
+    12: return, 32768US
+    13: return, 2147483648UL
+    15: return, 9223372036854775808ULL
+    else: return,0
+    endcase
 end
 
 
 ; Add a keyword as non-destructively as possible to a FITS header
-pro chk_and_upd, header, key, value, comment
+pro chk_and_upd, header, key, value, comment, nological=nological
+     compile_opt idl2,hidden
 
 
     xcomm = ""
@@ -292,7 +313,6 @@ pro chk_and_upd, header, key, value, comment
     endif else begin
        
         oldvalue = fxpar(header, key, count=count, comment=oldcomment)
-   
         if (count eq 1) then begin
 
            qchange = 0 ; Set to 1 if either the type of variable or its
@@ -304,13 +324,13 @@ pro chk_and_upd, header, key, value, comment
             if (qchange) then begin
 
                if n_elements(oldcomment) gt 0 then xcomm = oldcomment[0]
-               fxaddpar, header, key, value, xcomm
+               fxaddpar, header, key, value, xcomm,nological=nological
               
            endif
            
        endif else begin
            
-            fxaddpar, header, key, value, xcomm
+            fxaddpar, header, key, value, xcomm,nological=nological
         endelse
        
     endelse
@@ -318,18 +338,16 @@ end
 
 ; Get the column name appropriate for a given tag
 function mwr_checktype, tag, alias=alias
+     compile_opt idl2,hidden
 
-    if not keyword_set(alias) then return, tag
+    if ~keyword_set(alias) then return, tag
 
-    sz = size(alias)
+    sz = size(alias,/struc)
     ; 1 or 2 D string array with first dimension of 2
-    if (sz[0] eq 1 or sz[1] eq 2) and sz[1] eq 2 and sz[sz[0]+1] eq 7 then begin
-       w = where(tag eq alias[0,*])
-       if (w[0] eq -1) then begin
-           return, tag
-       endif else begin
-           return, alias[1,w[0]]
-       endelse
+    if (sz.type_name EQ 'STRING') && (sz.dimensions[0] EQ 2) && $
+       (sz.N_dimensions LE 2)  then begin 
+       w = where(tag eq strtrim(alias[0,*],2),N_alias)
+       if N_alias EQ 0 then return,tag else return,alias[1,w[0]]
     endif else begin
        print,'MWRFITS: Warning: Alias values not strarr(2) or strarr(2,*)'
     endelse
@@ -349,6 +367,7 @@ pro mwr_ascii, input, siz, lun, bof, header,     $
         no_comment=no_comment,                   $
        silent=silent,                           $
        alias=alias
+     compile_opt idl2,hidden
        
     ; Write the header and data for a FITS ASCII table extension.
   
@@ -382,8 +401,7 @@ pro mwr_ascii, input, siz, lun, bof, header,     $
     ctypes  = lonarr(ntag)
     strmaxs = lonarr(ntag)
 
-    if not keyword_set(separator) then separator=' '
-
+    if ~keyword_set(separator) then separator=' '
     slen = strlen(separator)
 
     offsets = 0
@@ -399,7 +417,7 @@ pro mwr_ascii, input, siz, lun, bof, header,     $
         totalFormat = totalFormat + xsep;
     
         sz = size(i0.(i))
-        if sz[0] ne 0 and (sz[sz[0]+1] ne 1) then begin
+        if (sz[0] ne 0) && (sz[sz[0]+1] ne 1) then begin
             print, 'MWRFITS Error: ASCII table cannot contain arrays'
            return
         endif
@@ -431,19 +449,19 @@ pro mwr_ascii, input, siz, lun, bof, header,     $
            ctypes[i] = 7
            offset = offset + strmax
        
-        endif else if sz[1] eq 6  or sz[1] eq 9 then begin
+        endif else if (sz[1] eq 6 ) || (sz[1] eq 9) then begin
             ; Complexes handled as two floats.
-           offset = offset + 1
+           offset++
        
            if sz[1] eq 6 then indx = where(types eq 'C')
            if sz[1] eq 9 then indx = where(types eq 'M')
            indx = indx[0]
            fx = formats[indx]
-           if (strmid(fx, 0, 1) eq "G"  or strmid(fx, 0, 1) eq "g") then begin
+           if strcmp(fx,'g',1,/fold) then begin
                if (sz[1] eq 6) then begin
-                   fx = "E"+strmid(fx,1, 99)
+                   fx = "E"+strmid(fx,1 )
                endif else begin
-                  fx = "D"+strmid(fx,1, 99)
+                  fx = "D"+strmid(fx,1 )
                endelse
            endif
            tforms = [tforms, fx, fx]
@@ -458,11 +476,11 @@ pro mwr_ascii, input, siz, lun, bof, header,     $
         endif else begin
          
             if sz[1] eq 1 then indx = where(types eq 'B')                      $
-           else if sz[1] eq 2 or sz[1] eq 12 then indx = where(types eq 'I')  $
-           else if sz[1] eq 3 or sz[1] eq 13 then indx = where(types eq 'L')  $
+           else if (sz[1] eq 2) || (sz[1] eq 12) then indx = where(types eq 'I')  $
+           else if (sz[1] eq 3) || (sz[1] eq 13) then indx = where(types eq 'L')  $
            else if sz[1] eq 4 then indx = where(types eq 'F')                 $
            else if sz[1] eq 5 then indx = where(types eq 'D')                 $
-           else if sz[1] eq 14 or sz[1] eq 15 then indx = where(types eq 'K') $
+           else if (sz[1] eq 14) || (sz[1] eq 15) then indx = where(types eq 'K') $
            else begin
                print, 'MWRFITS Error: Invalid type in ASCII table'
                return
@@ -470,7 +488,7 @@ pro mwr_ascii, input, siz, lun, bof, header,     $
        
            indx = indx[0]
            fx = formats[indx]
-           if (strmid(fx, 0, 1) eq 'G' or strmid(fx, 0, 1) eq 'g') then begin
+           if (strmid(fx, 0, 1) eq 'G' || strmid(fx, 0, 1) eq 'g') then begin
                if sz[1] eq 4 then begin
                    fx = 'E'+strmid(fx, 1, 99)
                endif else begin
@@ -493,7 +511,7 @@ pro mwr_ascii, input, siz, lun, bof, header,     $
 
     if  keyword_set(terminator) then begin
         sz = size(terminator);
-        if sz[0] ne 0 or sz[1] ne 7 then begin
+        if sz[0] ne 0 || sz[1] ne 7 then begin
             terminator= string(10B)
         endif
     endif
@@ -514,8 +532,9 @@ pro mwr_ascii, input, siz, lun, bof, header,     $
     ; Recall that the TTYPES, TFORMS, and OFFSETS arrays have an
     ; initial dummy element.
 
+
     ; Write the TTYPE keywords.
-    if not keyword_set(no_types) then begin
+    if ~keyword_set(no_types) then begin
         for i=1, n_elements(ttypes)-1 do begin
             key = 'TTYPE'+ strcompress(string(i),/remo)
             if keyword_set(use_colnum) then begin
@@ -526,12 +545,10 @@ pro mwr_ascii, input, siz, lun, bof, header,     $
            chk_and_upd, header, key, value
         endfor
 
-        if (not keyword_set(no_comment)) then begin
-            fxaddpar, header, 'COMMENT', ' ', before='TTYPE1'
-            fxaddpar, header, 'COMMENT', ' *** Column names ***', before='TTYPE1'
-            fxaddpar, header, 'COMMENT', ' ', before='TTYPE1'
-        endif
-    
+        if (~keyword_set(no_comment)) then $
+	    sxaddhist, [' ',' *** Column names ***',' '],header, $
+	        /comment,location='TTYPE1'
+     
     endif
 
     ; Write the TBCOL keywords.
@@ -541,11 +558,9 @@ pro mwr_ascii, input, siz, lun, bof, header,     $
         chk_and_upd, header, key, offsets[i]+1
     endfor
 
-    if (not keyword_set(no_comment)) then begin
-        fxaddpar, header, 'COMMENT', ' ', before='TBCOL1'
-        fxaddpar, header, 'COMMENT', ' *** Column offsets ***', before='TBCOL1'
-        fxaddpar, header, 'COMMENT', ' ', before='TBCOL1'
-    endif
+    if ~keyword_set(no_comment) then $
+        sxaddhist,[' ',' *** Column offsets ***',' '],header,/comm, $
+	           location = 'TBCOL1'
 
     ; Write the TFORM keywords
 
@@ -554,51 +569,34 @@ pro mwr_ascii, input, siz, lun, bof, header,     $
         chk_and_upd, header, key, tforms[i]
     endfor
 
-    if (not keyword_set(no_comment)) then begin
-        fxaddpar, header, 'COMMENT', ' ', before='TFORM1'
-        fxaddpar, header, 'COMMENT', ' *** Column formats ***', before='TFORM1'
-        fxaddpar, header, 'COMMENT', ' ', before='TFORM1'
-    endif
-
+    if ~keyword_set(no_comment) then $
+        sxaddhist,[' ',' *** Column formats ***',' '],header, $
+	    /COMMENT, location = 'TFORM1'
+ 
     ; Write the header.
 
     mwr_header, lun, header
 
-    ; Now loop over the structure and write out the data.
+    ;  Write out the data applying the field formats
 
     totalFormat = "("+totalFormat+")";
     
-    start = 0L
-    last  = 1023L
-    while (start lt n_elements(input)) do begin
-        if (last ge n_elements(input)) then begin
-            last = n_elements(input) - 1
-        endif
-
-        strings = string(input[start:last], format=totalFormat)
-        if keyword_set(terminator) then begin
-            strings = strings+terminator
-        endif
-        writeu, lun, strings
-        start = last + 1
-        last  = last + 1024
-    endwhile
-
+     strings = string(input, format=totalFormat)
+     if keyword_set(terminator) then strings = strings+terminator
+     writeu, lun, strings
+ 
     ; Check to see if any padding is required.
 
-    nbytes = n_elements(input)*offset
+    nbytes = long64(n_elements(input))*offset
     padding = 2880 - nbytes mod 2880
-
-    if padding ne 0 then begin
-        pad = replicate(32b, padding)
-    endif
-    writeu, lun, pad
-
+    if padding ne 0 then writeu, lun, replicate(32b, padding)
+    
    return
 end
 
 ; Write a dummy primary header-data unit.
 pro mwr_dummy, lun
+     compile_opt idl2,hidden
 
     fxaddpar, header, 'SIMPLE', 'T','Dummy Created by MWRFITS v'+mwr_version()
     fxaddpar, header, 'BITPIX', 8, 'Dummy primary header created by MWRFITS'
@@ -610,6 +608,7 @@ end
 
 ; Check if this is a valid pointer array for variable length data.
 function mwr_validptr, vtypes, nfld, index, array
+     compile_opt idl2,hidden
     
     type = -1
     offset = 0L
@@ -639,7 +638,7 @@ function mwr_validptr, vtypes, nfld, index, array
        type = 2
     endif
 
-    if  (type lt 1 or type gt 5) and (type lt 12 or type gt 15) then begin
+    if  (type lt 1 || type gt 5) &&(type lt 12 || type gt 15) then begin
        print,'MWRFITS: Error: Unsupported type for variable length array'
     endif
 
@@ -683,9 +682,11 @@ pro mwr_tablehdr, lun, input, header, vtypes,     $
               nbit_cols= nbit_cols,             $
                 no_comment=no_comment,            $
               alias=alias,                      $
-              silent=silent
+              silent=silent,                     $
+	      use_colnum = use_colnum
+     compile_opt idl2,hidden
 
-    if not keyword_set(no_types) then no_types = 0
+    if ~keyword_set(no_types) then no_types = 0
 
     nfld = n_tags(input[0])
     if nfld le 0 then begin
@@ -711,8 +712,11 @@ pro mwr_tablehdr, lun, input, header, vtypes,     $
     ; by examining the contents of the first row of the structure.
     ;
 
-    nbyte = 0
+    nbyte = 0ULL
 
+    islogical = bytarr(nfld)
+    if keyword_set(logical_cols) then islogical[logical_cols-1] = 1b
+   
     for i=0, nfld-1 do begin
 
        a = input[0].(i)
@@ -721,13 +725,32 @@ pro mwr_tablehdr, lun, input, header, vtypes,     $
        
        nelem    = sz[sz[0]+2]
        type_ele = sz[sz[0]+1]
+       if type_ele EQ 7 then maxstr = max(strlen(input.(i)) > 1)
        
-       if type_ele eq 7 then begin     
-           maxstr = max(strlen(input.(i)) > 1 )
+       if islogical[i]  then begin        
+          if (type_ele EQ 1) then begin
+          gg = (input.(i) EQ 0b) or (input.(i) EQ 84b) or (input.(i) EQ 0b) 
+	       if ~array_equal(gg,1b) then begin 
+	       islogical[i] = 0b
+	       message,/CON, 'Warning - ' + $ 
+	  "Allowed Logical Column byte values are byte('T'),byte('F'), or 0b"
+	   endif
+	endif else if (type_ele EQ 7) then begin   	  	 
+           gg =  (input.(i) eq 'T') or (input.(i) eq 'F')
+	       if ~array_equal(gg,1b) then begin
+	       islogical[i] = 0b
+	       message,/CON, 'Warning - ' + $ 
+	  'Allowed Logical column string values are "T" and "F"'
+	   endif
+	endif else begin 
+	    message,/CON, $
+	    'Warning - Logical Columns must be of type string or byte'
+	    islogical[i] = 0b
+	 endelse   	  
        endif               
        dims[i] = nelem
        
-        if (sz[0] lt 1) or (sz[0] eq 1 and type_ele ne 7) then begin
+        if (sz[0] lt 1) || (sz[0] eq 1 && type_ele ne 7) then begin
            tdims[i] = ''
        endif else begin
            tdims[i] = '('
@@ -743,8 +766,7 @@ pro mwr_tablehdr, lun, input, header, vtypes,     $
            
            tdims[i] = tdims[i] + ')'
        endelse
-       
-       
+             
        case type_ele of
           1:        begin
                      types[i] = 'B'
@@ -771,6 +793,7 @@ pro mwr_tablehdr, lun, input, header, vtypes,     $
                      nbyte = nbyte + 8*nelem
               end
           7:       begin
+                     maxstr = max(strlen(input.(i)) > 1 )
                      types[i] = 'A'
                      nbyte = nbyte + maxstr*nelem
                      dims[i] = maxstr*nelem		    
@@ -781,7 +804,7 @@ pro mwr_tablehdr, lun, input, header, vtypes,     $
               end
 
          10:   begin
-                       if not mwr_validptr(vtypes, nfld, i, input.(i)) then begin
+                       if ~mwr_validptr(vtypes, nfld, i, input.(i)) then begin
                          return
                      endif
                      
@@ -862,18 +885,8 @@ pro mwr_tablehdr, lun, input, header, vtypes,     $
     ;
     ; Handle the special cases.
     ;
-    if keyword_set(logical_cols) then begin
-       nl = n_elements(logical_cols)
-       for i = 0, nl-1 do begin
-           icol = logical_cols[i]
-	   if types[icol-1] ne 'A' and types[icol-1] ne 'B' then begin
-              print,'WARNING: Invalid attempt to create Logical column:',icol
-                    goto, next_logical
-           endif
-           types[icol-1] = 'L'
-  next_logical:
-       endfor
-    endif
+    g = where(islogical,Nlogic)
+    if Nlogic GT 0 then types[g] = 'L'
        
     if keyword_set(bit_cols) then begin
        nb = n_elements(bit_cols)
@@ -885,7 +898,7 @@ pro mwr_tablehdr, lun, input, header, vtypes,     $
        for i = 0, nb-1 do begin
            nbyte = (nbit_cols[i]+7)/8
            icol = bit_cols[i]
-           if types[icol-1] ne 'B'  or (dims[icol-1] ne nbyte) then begin
+           if types[icol-1] ne 'B'  || (dims[icol-1] ne nbyte) then begin
               print,'WARNING: Invalid attempt to create bit column:',icol
                     goto, next_bit
            endif
@@ -913,14 +926,13 @@ pro mwr_tablehdr, lun, input, header, vtypes,     $
            chk_and_upd, header, key, offsets[w[i]]
         endfor
     
-        if not keyword_set(no_comment) then begin
+        if ~keyword_set(no_comment) then begin
             key = 'TSCAL'+strcompress(string(w[0])+1,/remo)
-           fxaddpar, header, 'COMMENT', ' ', before=key
-           fxaddpar, header, 'COMMENT', ' *** Unsigned integer column scalings ***', before=key
-           fxaddpar, header, 'COMMENT', ' ', before=key
-        endif
+	   sxaddhist,[' ',' *** Unsigned integer column scalings *',' '], $
+	        header,/COMMENT,location = key
     endif
-
+    endif
+  
     ; Now add in the TFORM keywords
     for i=0, nfld-1 do begin
        if dims[i] eq 1 then begin
@@ -938,17 +950,15 @@ pro mwr_tablehdr, lun, input, header, vtypes,     $
               
        oval = fxpar(header, tfld)
        oval = strcompress(string(oval),/remove_all)
-       if (oval eq '0')  or  (strmid(oval, 0, strlen(form)) ne form) then begin
+       if (oval eq '0')  ||  (strmid(oval, 0, strlen(form)) ne form) then begin
            chk_and_upd, header, tfld, form
        endif
     endfor
 
-    if (not keyword_set(no_comment)) then begin
-        fxaddpar, header, 'COMMENT', ' ', before='TFORM1'
-        fxaddpar, header, 'COMMENT', ' *** Column formats ***', before='TFORM1'
-        fxaddpar, header, 'COMMENT', ' ', before='TFORM1'
-    endif
-
+    if ~keyword_set(no_comment) then $
+        sxaddhist,[' ',' *** Column formats ***',' '],header, $
+	    /COMMENT, location='TFORM1'
+ 
     ; Now write TDIM info as needed.
     for i=nfld-1, 0,-1 do begin
         if tdims[i] ne '' then begin
@@ -956,8 +966,8 @@ pro mwr_tablehdr, lun, input, header, vtypes,     $
         endif
     endfor
 
-    w=where(tdims ne '')
-    if w[0] ne -1 and not keyword_set(no_comment) then begin
+    w=where(tdims ne '',N_tdims)
+    if (N_tdims GT 0) && ~keyword_set(no_comment) then begin
         fxaddpar, header, 'COMMENT', ' ', after=tfld
         fxaddpar, header, 'COMMENT', ' *** Column dimensions (2 D or greater) ***', after=tfld
         fxaddpar, header, 'COMMENT', ' ', after=tfld
@@ -981,25 +991,23 @@ pro mwr_tablehdr, lun, input, header, vtypes,     $
     ;
     ; Last add in the TTYPE keywords if desired.
     ;
-    if not no_types then begin
+    if ~no_types then begin
        for i=0, nfld - 1 do begin
            key = 'TTYPE'+strcompress(string(i+1),/remove)
-           if not keyword_set(use_colnums) then begin
-               value= mwr_checktype(tags[i],alias=alias)+' '
+           if ~keyword_set(use_colnum) then begin
+               value= mwr_checktype(tags[i],alias=alias)
            endif else begin
-               value = 'C'+strmid(key,5,2)
+               value = 'C'+strmid(key,5,2) + ' '
            endelse
-           chk_and_upd, header, key, value
+          chk_and_upd, header, key, value, /nological
        endfor
        
-        if (not keyword_set(no_comment)) then begin
-           fxaddpar, header, 'COMMENT', ' ', before='TTYPE1'
-           fxaddpar, header, 'COMMENT', ' *** Column names *** ',before='TTYPE1'
-           fxaddpar, header, 'COMMENT', ' ',before='TTYPE1'
-       endif
-    endif
+        if ~keyword_set(no_comment) then $
+	   sxaddhist,[' ',' *** Column names *** ',' '],header,/comment, $
+	        location = 'TTYPE1'
+     endif
 
-    if (not keyword_set(no_comment)) then begin
+    if ~keyword_set(no_comment) then begin
         fxaddpar, header, 'COMMENT', ' ', after='TFIELDS'
         fxaddpar, header, 'COMMENT', ' *** End of mandatory fields ***', after='TFIELDS'
         fxaddpar, header, 'COMMENT', ' ', after='TFIELDS'
@@ -1013,6 +1021,7 @@ end
 ; Modify the structure to put the pointer column in.
 function mwr_retable, input, vtypes
 
+     compile_opt idl2,hidden
 
     offset = 0L
     tags = tag_names(input);
@@ -1088,6 +1097,7 @@ end
 
 ; Write the brinary table.
 pro mwr_tabledat, lun, input, header, vtypes
+     compile_opt idl2,hidden
     ;
     ; file              -- unit to which data is to be written.
     ; Input              -- IDL structure
@@ -1127,13 +1137,12 @@ pro mwr_tabledat, lun, input, header, vtypes
     ;
     writeu, lun, input
 
-    nbyte = long(fxpar(header, 'NAXIS1'))
+    nbyte = long64(fxpar(header, 'NAXIS1'))
     nrow  = n_elements(input)
 
     heap = 0
-    if n_elements(vtypes) gt 0 then begin
+    if n_elements(vtypes) gt 0 then $
         heap = mwr_writeheap(lun, vtypes)
-    endif
 
     siz   = nbyte*nrow + heap
     padding = 2880 - (siz mod 2880)
@@ -1152,12 +1161,14 @@ end
 
 ; Scale parameters for GROUPed data.
 pro mwr_pscale, grp, header, pscale=pscale, pzero=pzero
+     compile_opt idl2,hidden
+    
 
 ; This function assumes group is a 2-d array.
 
-    if not keyword_set(pscale) and not keyword_set(pzero) then return
+    if ~keyword_set(pscale) && ~keyword_set(pzero) then return
 
-    if not keyword_set(pscale) then begin
+    if ~keyword_set(pscale) then begin
         pscale = dblarr(sizg[1])
         pscale[*] = 1.
     endif
@@ -1176,7 +1187,7 @@ pro mwr_pscale, grp, header, pscale=pscale, pzero=pzero
         endfor
     endif
 
-    if not keyword_set(pzero) then begin
+    if ~keyword_set(pzero) then begin
         pzero = dblarr(sizg[1])
         pzero[*] = 0.
     endif else begin
@@ -1196,6 +1207,7 @@ end
 ; Find the appropriate scaling parameters.
 pro mwr_findscale, flag, array, nbits, scale, offset, error
 
+     compile_opt idl2,hidden
 
     error = 0
     if n_elements(flag) eq 2 then begin
@@ -1226,13 +1238,14 @@ end
 pro mwr_scale, array, scale, offset, lscale=lscale, iscale=iscale,  $
    bscale=bscale, null=null
 
+     compile_opt idl2,hidden
 
     ; First deallocate scale and offset
     if n_elements(scale)  gt 0 then xx = temporary(scale)
     if n_elements(offset) gt 0 then xx = temporary(offset)
 
-    if not keyword_set(lscale) and not keyword_set(iscale) and  $
-       not keyword_set(bscale) then return
+    if ~keyword_set(lscale) && ~keyword_set(iscale) &&  $
+       ~keyword_set(bscale) then return
 
     siz = size(array)
     if keyword_set(lscale) then begin
@@ -1270,17 +1283,14 @@ pro mwr_scale, array, scale, offset, lscale=lscale, iscale=iscale,  $
 
     array = round((array-offset)/scale)
 
-    w=where(array lt 0)
     w = where(array gt amax)
-    if w[0] ne -1 then begin
-        if keyword_set(null) then array[w] = null else array[w]=amax
-    endif
-
+    if w[0] ne -1 then $
+        array[w] = keyword_set(null) ? null : amax
+ 
     w = where(array lt amin)
-    if w[0] ne -1 then begin
-        if keyword_set(null) then array[w] = null else array[w] = amin
-    endif
-
+    if w[0] ne -1 then $
+        array[w] = keyword_set(null) ? null : amin
+ 
     if keyword_set(lscale) then      array = long(array) $
     else if keyword_set(iscale) then array = fix(array)  $
     else                             array = byte(array)
@@ -1290,19 +1300,20 @@ end
 ; Write a header
 pro mwr_header, lun, header
 
+     compile_opt idl2,hidden
     ; Fill strings to at least 80 characters and then truncate.
 
     space = string(replicate(32b, 80))
     header = strmid(header+space, 0, 80)
 
-    w = where(strmid(header,0,8) eq "END     ")
+    w = where(strcmp(header,"END     ",8), Nw)
 
-    if w[0] eq -1 then begin
+    if Nw eq 0 then begin
 
        header = [header, strmid("END"+space,0,80)]
        
     endif else begin
-        if (n_elements(w) gt 1) then begin 
+        if (Nw gt 1) then begin 
            ; Get rid of extra end keywords;
            print,"MWRFITS Warning: multiple END keywords found."
            for irec=0L, n_elements(w)-2 do begin
@@ -1324,6 +1335,7 @@ end
 
 ; Move the group information within the data.
 pro mwr_groupinfix, data, group, hdr
+     compile_opt idl2,hidden
 
     siz = size(data)
     sizg = size(group)
@@ -1379,6 +1391,7 @@ end
 ; check to see if the group parameters will exceed the maximum
 ; values allowed.  If so scale them and update the header.
 pro mwr_groupscale, maxval, group, hdr
+     compile_opt idl2,hidden
 
     sz = size(group)
     for i=0L, sz[1]-1 do begin
@@ -1409,15 +1422,16 @@ pro mwr_image, input, siz, lun, bof, hdr,       $
        silent=silent
 
 
+    compile_opt idl2,hidden
     type = siz[siz[0] + 1]
 
     bitpixes=[8,8,16,32,-32,-64,-32,0,0,-64,0,0,16,32,64,64]
 
     ; Convert complexes to two element real array.
 
-    if type eq 6 or type eq 9 then begin
+    if type eq 6 || type eq 9 then begin
  
-        if not keyword_set(silent) then begin
+        if ~keyword_set(silent) then begin
             print, "MWRFITS Note: Complex numbers treated as arrays"
         endif
     
@@ -1447,8 +1461,6 @@ pro mwr_image, input, siz, lun, bof, hdr,       $
     
     endif else if n_elements(input) gt 0 then data = input
 
-    ; Convert scalar to 1-d array.
-    if siz[0] eq 0 and siz[1] ne 0 then data=(data)
 
     ; Do any scaling of the data.
     mwr_scale, data, scalval, offsetval, lscale=lscale, $
@@ -1516,7 +1528,7 @@ pro mwr_image, input, siz, lun, bof, hdr,       $
        if bzero gt 0 then begin
            chk_and_upd,hdr,'BSCALE', 1
            chk_and_upd, hdr, 'BZERO', bzero
-           data = data + bzero
+           data += bzero
         endif
        
     endelse
@@ -1551,7 +1563,7 @@ pro mwr_image, input, siz, lun, bof, hdr,       $
     mwr_header, lun, hdr
 
     ; This is all we need to do if input is undefined.
-    if (n_elements(input) eq 0) or (siz[0] eq 0) then return
+    if (n_elements(input) eq 0) || (siz[0] eq 0) then return
 
     ; Write the data.
     writeu, lun, data
@@ -1584,17 +1596,19 @@ pro mwrfits, xinput, file, header,              $
        logical_cols=logical_cols,              $
        bit_cols=bit_cols,                      $
        nbit_cols=nbit_cols,                    $
+       status = status,                        $
        version=version
 
 
     ; Check required keywords.
-
+    compile_opt idl2
+    status = -1                     ;Status changes to 0 upon completion
     if (keyword_set(Version)) then begin
-        print, "MWRFITS V"+mwr_version()+":  Marcy 2, 2007"
+        print, "MWRFITS V"+mwr_version()+":  October 12, 2012"
     endif
 
     if n_elements(file) eq 0 then begin
-        if (not keyword_set(Version)) then begin
+        if ~keyword_set(Version) then begin
             print, 'MWRFITS: Usage:'
             print, '    MWRFITS, struct_name, file, [header,] '
             print, '             /CREATE, /SILENT, /NO_TYPES, /NO_COMMENT, '
@@ -1602,7 +1616,7 @@ pro mwrfits, xinput, file, header,              $
             print, '             LSCALE=, ISCALE=, BSCALE=,'
             print, '             LOGICAL_COLS=, BIT_COLS=, NBIT_COLS=,'
             print, '             ASCII=, SEPARATOR=, TERMINATOR=, NULL='
-           print, '             /USE_COLNUM, ALIAS='
+           print, '             /USE_COLNUM, ALIAS=, STATUS='
         endif
         return
     endif
@@ -1614,34 +1628,21 @@ pro mwrfits, xinput, file, header,              $
 
     on_ioerror, open_error
 
-    ; Open the input file.
-    ; If the create keyword is not specified we
-    ; try to open the file readonly to see if it
-    ; already exists and if so we append to it.
-    ; An error implies the file does not exist.
-    ;
-    ; We use this rather circuitous route to handle
-    ; the unix ~ construction consistently -- findfile
-    ; doesn't reliably understand that.
-    ;
+    ; Open the input file.    If it exists, and the /CREATE keyword is not 
+    ; specified, then we append to to the existing file.
+     ;
 
-    if  not keyword_set(create) then begin
-        on_ioerror, not_found
-        openr, lun, file, /get_lun,/swap_if_little
-        free_lun, lun
-        on_ioerror, open_error
+    if  ~keyword_set(create) && file_test(file) then begin
         openu, lun, file, /get_lun, /append,/swap_if_little
+        if ~keyword_set(silent) then $
+	    message,/inf,'Appending FITS extension to file ' + file
         bof = 0
-        goto, finished_open
-    endif
-
-  not_found:
-    on_ioerror, open_error
-    openw, lun, file, /get_lun, /swap_if_little
-    bof = 1
+    endif else begin 
+        openw, lun, file, /get_lun, /swap_if_little
+         bof = 1
+    endelse 	 
     on_ioerror, null
 
-  finished_open:
 
     siz = size(input) 
      if siz[siz[0]+1] ne 8 then begin
@@ -1660,7 +1661,7 @@ pro mwrfits, xinput, file, header,              $
 
         if bof then mwr_dummy, lun
         ; Create an ASCII table.
-        mwr_ascii, input, siz, lun, bof, header,     $
+	mwr_ascii, input, siz, lun, bof, header,     $
          ascii=ascii,                             $
          null=null,                               $
          use_colnum = use_colnum,                 $
@@ -1685,13 +1686,15 @@ pro mwrfits, xinput, file, header,              $
           nbit_cols= nbit_cols,                     $
           alias=alias,                              $
           no_comment=no_comment,                    $
-	  silent=silent
+	  silent=silent,                             $
+	  use_colnum = use_colnum
        
         mwr_tabledat, lun, input, header, vtypes
 
     endelse
 
     free_lun, lun
+    status=0
     return
     
     ; Handle error in opening file.

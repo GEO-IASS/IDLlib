@@ -9,7 +9,7 @@ pro tvlist, image, dx, dy, TEXTOUT = textout, OFFSET = offset, ZOOM = ZOOM
 ;	TVLIST, [image, dx, dy, TEXTOUT=, OFFSET= , ZOOM= ]
 ;
 ; OPTIONAL INPUTS:
-;	IMAGE - Array containing the image currently displayed on the TV.
+;	IMAGE - Array containing the image currently displayed on the screen.
 ;		If omitted, the byte pixel intensities are read from the TV
 ;		If the array does not start at position (0,0) on the window then
 ;		the OFFSET keyword should be supplied.
@@ -65,8 +65,8 @@ pro tvlist, image, dx, dy, TEXTOUT = textout, OFFSET = offset, ZOOM = ZOOM
 ;	TVLIST may not be able to correctly format all pixel values if the
 ;	dynamic range near the cursor position is very large.
 ;
-;       Probably does not work under Mac IDL which does not allow the cursor
-;       to be positioned with TVCRS
+;       For the cursor to work under Mac OSX  the "Click-through Inactive 
+;       Windows" setting the in X11:Preferences:Window needs to be enabled.
 ; PROCEDURES CALLED:
 ;	IMLIST, UNZOOM_XY
 ; REVISION HISTORY:

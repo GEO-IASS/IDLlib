@@ -6,7 +6,9 @@ function HEADFITS, filename, EXTEN = exten, Compress = compress, $
 ; PURPOSE:
 ;       Read a FITS (primary or extension) header into a string array.
 ; EXPLANATION:
-;       HEADFITS() can also read gzip (.gz) or Unix compressed (.Z) FITS files.
+;       HEADFITS() supports several types of compressed files including 
+;       gzip (.gz), Unix compressed (.Z), Bzip2 (.bz2) or FPACK (.fz 
+;       http://heasarc.gsfc.nasa.gov/fitsio/fpack/ )
 ;
 ; CALLING SEQUENCE:
 ;       Result = HEADFITS(Filename/Fileunit ,[ ERRMSG =, EXTEN= , COMPRESS=, 
@@ -14,6 +16,7 @@ function HEADFITS, filename, EXTEN = exten, Compress = compress, $
 ;
 ; INPUTS:
 ;       Filename = String containing the name of the FITS file to be read.
+;                If set to an empty string, then user will be prompted for name.
 ;                File names ending in '.gz' are assumed to be gzip'ed compressed
 ;                and under Unix file names ending in '.Z' are assumed to be
 ;                Unix compressed, and file names ending in .bz2 are assumed to
@@ -29,8 +32,7 @@ function HEADFITS, filename, EXTEN = exten, Compress = compress, $
 ;              is more efficient that repeatedly starting at the beginning of 
 ;              the file.
 ;          (2) For reading a FITS file across a Web http: address after opening
-;              the unit with the SOCKET procedure (IDL V5.4 or later,
-;              Unix and Windows only) 
+;              the unit with the SOCKET procedure.
 ; OPTIONAL INPUT KEYWORDS:
 ;      EXTEN  = Either an integer scalar, specifying which FITS extension to 
 ;               read, or a scalar string specifying the extension name (stored
@@ -73,6 +75,7 @@ function HEADFITS, filename, EXTEN = exten, Compress = compress, $
 ;
 ; PROCEDURES CALLED
 ;       FXPOSIT(), MRD_HREAD
+;       The version of fxposit.pro must be post- May 2009.
 ; MODIFICATION HISTORY:
 ;       adapted by Frank Varosi from READFITS by Jim Wofford, January, 24 1989
 ;       Keyword EXTEN added, K.Venkatakrishna, May 1992
@@ -85,8 +88,11 @@ function HEADFITS, filename, EXTEN = exten, Compress = compress, $
 ;       Option to read a unit number rather than file name W.L    October 2001
 ;       Test output status of MRD_HREAD call October 2003 W. Landsman
 ;       Allow extension to be specified by name Dec 2006 W. Landsman
+;       No need to uncompress FPACK compressed files  May 2009 W. Landsman
+;       Use V6.0 notation   W.L.   Feb. 2011  
 ;-
  On_error,2
+ compile_opt idl2
 
  if N_params() LT 1 then begin
      print,'Syntax - header = headfits( filename,[ EXTEN=, ERRMSG=, ' + $
@@ -94,14 +100,14 @@ function HEADFITS, filename, EXTEN = exten, Compress = compress, $
      return, -1
  endif
 
-  printerr = not arg_present(errmsg) 
+  printerr = ~arg_present(errmsg) 
   errmsg = ''
-  if not keyword_set(exten) then exten = 0
+  if ~keyword_set(exten) then exten = 0
 
   unitsupplied = size(filename,/TNAME) NE 'STRING'
   if unitsupplied then unit = filename else begin 
      unit = FXPOSIT( filename, exten, errmsg = errmsg, $
-                   /READONLY,compress = compress, SILENT=silent)
+                   /READONLY,compress = compress, SILENT=silent,/headeronly)
      if unit EQ -1 then begin 
           if printerr then  $
 	         message,'ERROR - ' + errmsg,/CON 
@@ -110,14 +116,14 @@ function HEADFITS, filename, EXTEN = exten, Compress = compress, $
      if eof(unit) then begin
         free_lun,unit
         message = 'Extension past EOF'
-        if not printerr then errmsg = message else $
+        if ~printerr then errmsg = message else $
                message,'ERROR - ' + message,/CON 
         return,-1
      endif
   endelse
   
   MRD_HREAD, unit, header, status, SILENT = silent
-  if not unitsupplied then free_lun, unit
+  if ~unitsupplied then free_lun, unit
   if status LT 0 then begin
          if N_elements(errmsg) GT 0 then errmsg = !ERROR_STATE.MSG else $
           message,'ERROR - ' + !ERROR_STATE.MSG,/CON 

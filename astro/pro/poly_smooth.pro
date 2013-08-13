@@ -67,12 +67,12 @@ function poly_smooth, data, width, DEGREE=degree, NLEFT=nl, NRIGHT=nr,  $
 ;       Given a wavelength - flux spectrum (w,f), apply a 31 point quadratic
 ;       smoothing filter and plot
 ;
-;       IDL> plot, w, poly_smooth(f,31) 
+;       IDL> cgplot, w, poly_smooth(f,31) 
 ; COMMON BLOCKS:
 ;       common poly_smooth, degc, nlc, nrc, coefs, ordermax
 ;
 ; PROCEDURE:
-;       As described in Numerical Recipies, 2nd edition sec.14.8, 
+;       As described in Numerical Recipes, 2nd edition sec.14.8, 
 ;       Savitsky-Golay filter.
 ;       Matrix of normal eqs. is formed by starting with small terms
 ;       and then adding progressively larger terms (powers).

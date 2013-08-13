@@ -1,7 +1,7 @@
 pro forprint, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, $
       v15,v16,v17,v18,TEXTOUT = textout, FORMAT = format, SILENT = SILENT, $ 
       STARTLINE = startline, NUMLINE = numline, COMMENT = comment, $
-      SUBSET = subset, NoCOMMENT=Nocomment,STDOUT=stdout
+      SUBSET = subset, NoCOMMENT=Nocomment,STDOUT=stdout, WIDTH=width
 ;+
 ; NAME:
 ;       FORPRINT
@@ -19,7 +19,7 @@ pro forprint, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, $
 ;                                  SUBSET=, NUMLINE =, /SILENT, COMMENT= ] 
 ;
 ; INPUTS:
-;       V1,V2,...V18 - Arbitary IDL vectors.  If the vectors are not of
+;       V1,V2,...V18 - Arbitrary IDL vectors.  If the vectors are not of
 ;               equal length then the number of rows printed will be equal
 ;               to the length of the smallest vector.   Up to 18 vectors
 ;               can be supplied.
@@ -36,10 +36,11 @@ pro forprint, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, $
 ;               textout =      filename (default extension of .prt)
 ;               textout=7       Append to <program>.prt file if it exists
 ;
-;       COMMENT - String to write as the first line of output file if 
-;                TEXTOUT > 2.    By default, FORPRINT will write a time stamp
-;                on the first line.   Use /NOCOMMENT if you don't want FORPRINT
-;                to write anything in the output file.
+;       COMMENT - String scalar or vector to write to the first line of output 
+;                file if  TEXTOUT > 2.    By default, FORPRINT will write a time
+;                stamp on the first line.   Use /NOCOMMENT if you don't want 
+;                FORPRINT to write anything in the output file.    If COMMENT
+;                is a vector then one line will be written for each element.
 ;       FORMAT - Scalar format string as in the PRINT procedure.  The use
 ;               of outer parenthesis is optional.   Ex. - format="(F10.3,I7)"
 ;               This program will automatically remove a leading "$" from
@@ -64,17 +65,18 @@ pro forprint, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, $
 ;      /STDOUT - If set, the force standard output unit (=-1) if not writing 
 ;               to a file.   This allows the FORPINT output to be captured
 ;               in a journal file.    Only needed for non-GUI terminals 
+;       WIDTH - Line width for wrapping, passed onto OPENW when using hardcopy.
+;
 ; OUTPUTS:
 ;       None
 ; SYSTEM VARIABLES:
 ;       If keyword TEXTOUT is not used, the default is the nonstandard 
 ;       keyword !TEXTOUT.    If you want to use FORPRINT to write more than 
-;       once to the same file, or use a different file name then set 
-;       TEXTOUT=5, and open and close then file yourself (see documentation 
-;       of TEXTOPEN for more info).
+;       once to the same file then set TEXTOUT=5, and open and close the 
+;       file yourself (see documentation of TEXTOPEN for more info).
 ;       
-;       One way to add the non-standard system variables !TEXTOUT and !TEXTUNIT
-;       is to use the procedure ASTROLIB
+;       The non-standard system variables !TEXTOUT and !TEXTUNIT are 
+;       automatically added if not present to start with.
 ; EXAMPLE:
 ;       Suppose W,F, and E are the wavelength, flux, and epsilon vectors for
 ;       a spectrum.   Print these values to a file 'output.dat' in a nice 
@@ -82,7 +84,9 @@ pro forprint, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, $
 ;
 ;       IDL> fmt = '(F10.3,1PE12.2,I7)'
 ;       IDL> forprint, F = fmt, w, f, e, TEXT = 'output.dat'
-;
+; RESTRICTIONS:
+;       Uses the EXECUTE() function and so is not compatible with the IDL
+;       virtual machine.
 ; PROCEDURES CALLED:
 ;       TEXTOPEN, TEXTCLOSE
 ; REVISION HISTORY:
@@ -106,6 +110,9 @@ pro forprint, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, $
 ;       Change keyword_set() to N_elements W. Landsman  Oct 2006
 ;       Added /STDOUT keyword  W. Landsman Oct 2006
 ;       Fix error message for undefined variable W. Landsman  April 2007
+;       Added WIDTH keyword    J. Bailin  Nov 2010
+;       Allow multiple (vector) comment lines  W. Landsman April 2011
+;       Define !TEXTOUT and !TEXTUNIT if needed. W. Landsman October 2012
 ;-            
   On_error,2                               ;Return to caller
   compile_opt idl2
@@ -113,11 +120,17 @@ pro forprint, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, $
   npar = N_params()
   if npar EQ 0 then begin
       print,'Syntax - FORPRINT, v1, [ v2, v3,...v18, FORMAT =, /SILENT, SUBSET='
-      print,'      /NoCOMMENT, COMMENT =, STARTLINE = , NUMLINE =, TEXTOUT =]'
+      print,'      /NoCOMMENT, COMMENT =, STARTLINE = , NUMLINE =, TEXTOUT =, WIDTH =]'
       return
   endif
+  
+   defsysv,'!TEXTOUT',exists=ex			; Check if !TEXTOUT exists.
+  if ex eq 0 then defsysv,'!TEXTOUT',1		; If not define it.
+  defsysv,'!TEXTUNIT',exists=ex			; Check if !TEXTUNIT exists.
+  if ex eq 0 then defsysv,'!TEXTUNIT',0		; If not define it.
 
-  if not keyword_set( STARTLINE ) then startline = 1l else $
+
+  if ~keyword_set( STARTLINE ) then startline = 1l else $
          startline = startline > 1l 
 
   fmt="F"                 ;format flag
@@ -147,7 +160,7 @@ pro forprint, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, $
           if this_npts EQ 0 then $
               message,'ERROR - Parameter ' + strtrim(i,2) + ' is not defined'
           
-          if ((npts NE this_npts) AND NOT keyword_set(silent)) then $
+          if ((npts NE this_npts) && ~keyword_set(silent)) then $
             message,/INF,'Warning, vectors have different lengths.' 
           
           npts = npts < this_npts
@@ -169,17 +182,18 @@ pro forprint, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, $
 
 ; Use default output dev.
    demo = lmgr(/demo)
-   if not demo then begin 
+   if ~demo then begin 
 
-   if not keyword_set( TEXTOUT ) then textout = !TEXTOUT 
+   if ~keyword_set( TEXTOUT ) then textout = !TEXTOUT 
    if size( textout,/TNAME) EQ 'STRING' then text_out = 6  $      ;make numeric
                                   else text_out = textout
 
    textopen,'FORPRINT',TEXTOUT=textout,SILENT=silent,STDOUT=STDOUT, $
-       MORE_SET = more_set
-   if ( text_out GT 2 ) and (not keyword_set(NOCOMMENT)) then begin
-       if N_elements(comment) GT 0 then $
-        printf,!TEXTUNIT,comment else $
+       MORE_SET = more_set, WIDTH=width
+   if ( text_out GT 2 ) && (~keyword_set(NOCOMMENT)) then begin
+       Ncomm = N_elements(comment)
+       if Ncomm GT 0 then $
+        for i=0,ncomm-1 do printf,!TEXTUNIT,comment[i] else $
         printf,!TEXTUNIT,'FORPRINT: ',systime()
   endif 
   endif
@@ -193,8 +207,7 @@ pro forprint, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, $
       for i = startline-1, npts-1 do begin 
 
           test = execute('printf,!TEXTUNIT,' + str) 
-          if ( text_out EQ 1 ) then $                  ;Did user press 'Q' key?
-               if !ERR EQ 1 then BREAK
+               if !ERR EQ 1 then BREAK       ;Did user press 'Q' key?
 
       endfor
    endif else test = $
@@ -210,8 +223,7 @@ pro forprint, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, $
       for i = startline-1, npts-1 do begin 
 
          test = execute( 'printf, !TEXTUNIT,  FORMAT=frmt,' + str ) 
-         if  ( text_out EQ 1 ) then  $
-               if !ERR EQ 1 then BREAK
+                if !ERR EQ 1 then BREAK
 
       endfor
 

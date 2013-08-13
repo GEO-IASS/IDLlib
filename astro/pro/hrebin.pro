@@ -7,7 +7,7 @@
 ;    Expand or contract a FITS image using (F)REBIN and update the header 
 ; EXPLANATION:
 ;    If the output size is an exact multiple of the input size then REBIN is 
-;    used, else FREBIN is used.     User can either overwrite the input array,
+;    used, else FREBIN is used.   User can either overwrite the input array,
 ;    or write to new variables.
 ;
 ; CALLING SEQUENCE:
@@ -81,17 +81,22 @@
 ;     Correct astrometry for integral contraction W. Landsman  April 2002
 ;     Fix output astrometry for non-equal plate scales for PC matrix or
 ;     CROTA2 keyword, added ALT keyword.   W. Landsman May 2005
+;     Update distortion parameters if present  W. Landsman August 2007
+;     Don't update BSCALE/BZERO for unsigned integer W.Landsman Mar 2008
+;     Use post-V6.0 notation   W. Landsman  Nov 2011
+;     Write CRPIX values as double precision if necessary W. Landsman Oct. 2012
 ;- 
  On_error,2
+ compile_opt idl2
 
  npar = N_params()      ;Check # of parameters
- if (npar EQ 3) or (npar EQ 5) or (npar EQ 0) then begin
+ if (npar EQ 3) || (npar EQ 5) || (npar EQ 0) then begin
      print,'Syntax - HREBIN, oldim, oldhd,[ newim, newhd, OUTSIZE=, ' + $
                            '/SAMPLE, ERRMSG= ]'
      return
  endif
 
- if not keyword_set(SAMPLE) then sample = 0
+ if ~keyword_set(SAMPLE) then sample = 0
  save_err = arg_present(errmsg)      ;Does user want to return error messages?
 
 ; If only 1 parameter is supplied, then assume it is a FITS header
@@ -107,17 +112,18 @@
 
      check_FITS, oldim, oldhd, dimen, /NOTYPE, ERRMSG = errmsg
      if errmsg NE '' then begin
-        if not save_err then message,'ERROR - ' + errmsg,/CON
+        if ~save_err then message,'ERROR - ' + errmsg,/CON
         return
      endif
      if N_elements(dimen) NE 2 then begin 
            errmsg = 'Input image array must be 2-dimensional'
-           if not save_err then message,'ERROR - ' + errmsg,/CON
+           if ~save_err then message,'ERROR - ' + errmsg,/CON
            return
      endif
       xsize = dimen[0]  &  ysize = dimen[1]
  endelse
-
+ tname = size(oldim,/tname)
+ 
  if ( npar LT 6 ) then begin
 
     if ( N_elements(OUTSIZE) NE 2 ) then begin
@@ -135,8 +141,8 @@
 ;  If an image array supplied then apply the REBIN  or FREBIN functions
 ; If output size is a multiple of input size then use REBIN else use FREBIN
 
-  exact = (((xsize mod newx) EQ 0) or ((newx mod xsize) EQ 0)) and $
-          (((ysize mod newy) EQ 0) or ((newy mod ysize) EQ 0))
+  exact = (~(xsize mod newx)  || ~(newx mod xsize)) && $
+          (~(ysize mod newy)  || ~(newy mod ysize)  )
 
  if npar GT 1 then begin
  if exact then begin
@@ -162,6 +168,12 @@
  sxaddpar,newhd,'history',label + ' Original Image Size Was '+ $
          strn(xsize) +' by ' +  strn(ysize) 
  if ( npar GT 1 ) then sxaddpar,newhd,'history',label+type
+ 
+ xratio = float(newx) / xsize   ;Expansion or contraction in X
+ yratio = float(newy) / ysize   ;Expansion or contraction in Y
+ lambda = yratio/xratio         ;Measures change in aspect ratio.
+ pix_ratio = xratio*yratio      ;Ratio of pixel areas
+
 
 ; Update astrometry info if it exists
 
@@ -173,10 +185,6 @@
         extast, newhd, astr, noparams
  endif
 
- xratio = float(newx) / xsize   ;Expansion or contraction in X
- yratio = float(newy) / ysize   ;Expansion or contraction in Y
- lambda = yratio/xratio         ;Measures change in aspect ratio.
- pix_ratio = xratio*yratio      ;Ratio of pixel areas
 
 ; Correct the position of the reference pixel.   Note that CRPIX values are
 ; given in FORTRAN (first pixel is (1,1)) convention
@@ -187,17 +195,27 @@
 ; effects are introduced, which require a different calculation of the updated
 ; CRPIX1 and CRPIX2 values.
 
- if (exact) and (not keyword_set(SAMPLE)) and (xratio GT 1) then $
+ if (exact) && (~keyword_set(SAMPLE)) && (xratio GT 1) then $
       crpix1 = (crpix[0]-1.0)*xratio + 1.0                  else $
       crpix1 = (crpix[0]-0.5)*xratio + 0.5
 
- if (exact) and (not keyword_set(SAMPLE)) and (yratio GT 1) then $
+ if (exact) && (~keyword_set(SAMPLE)) && (yratio GT 1) then $
       crpix2 = (crpix[1]-1.0)*yratio + 1.0                  else $
       crpix2 = (crpix[1]-0.5)*yratio + 0.5
 
  if N_elements(alt) EQ 0 then alt = ''
- sxaddpar, newhd, 'CRPIX1' + alt, crpix1, FORMAT='(G14.7)'
- sxaddpar, newhd, 'CRPIX2' + alt, crpix2, FORMAT='(G14.7)'
+ sxaddpar, newhd, 'CRPIX1' + alt, crpix1
+ sxaddpar, newhd, 'CRPIX2' + alt, crpix2
+ 
+  if tag_exist(astr,'DISTORT') then begin
+         distort = astr.distort
+	 message,'Updating SIP distortion parameters',/INF
+         update_distort,distort, [1./xratio,0],[1./yratio,0]
+	 astr.distort= distort
+	 add_distort, newhd, astr
+   endif	 
+
+
 
 ; Scale either the CDELT parameters or the CD1_1 parameters.
 
@@ -231,16 +249,21 @@
  endelse
  endif
 
-; Adjust BZERO and BSCALE for new pixel size
+; Adjust BZERO and BSCALE for new pixel size, unless these values are used
+; to define unsigned integer data types.  
 
  bscale = sxpar( oldhd, 'BSCALE')
- if (bscale NE 0) and (bscale NE 1) then $
-    sxaddpar, newhd, 'BSCALE', bscale/pix_ratio, 'Calibration Factor'
  bzero = sxpar( oldhd, 'BZERO')
-    if (bzero NE 0) then sxaddpar, newhd, 'BZERO', bzero/pix_ratio, $
-       ' Additive Constant for Calibration'
+ unsgn = (tname EQ 'UINT') || (tname EQ 'ULONG') 
 
- pixelsiz = sxpar( oldhd,'PIXELSIZ' , Count = N_pixelsiz)
+ if ~unsgn then begin 
+ if (bscale NE 0) && (bscale NE 1) then $
+    sxaddpar, newhd, 'BSCALE', bscale/pix_ratio, 'Calibration Factor'
+ if (bzero NE 0) then sxaddpar, newhd, 'BZERO', bzero/pix_ratio, $
+       ' Additive Constant for Calibration'
+ endif 
+ 
+  pixelsiz = sxpar( oldhd,'PIXELSIZ' , Count = N_pixelsiz)
  if N_pixelsiz GT 0 then sxaddpar, newhd, 'PIXELSIZ', pixelsiz/xratio
 
  if npar EQ 2 then oldhd = newhd else $

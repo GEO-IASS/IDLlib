@@ -48,18 +48,20 @@ pro dbext_dbf,list,dbno,sbyte,nbytes,idltype,nval,v1,v2,v3,v4,v5,v6, $
 ;       Return a vector even if only 1 value W. Thompson  October 1996
 ;       Change variable name of BYTESWAP to BSWAP  W. Thompson Mar 1997
 ;       Use /OVERWRITE with reform   W. Landsman   May 1997
-;       Converted to IDL V5.0   W. Landsman   September 1997
 ;       Increase maximum number of items to 18  W. Landsman  November 1999
 ;       2 May 2003, W. Thompson, Use DBXVAL with BSWAP instead of IEEE_TO_HOST.
 ;       Avoid EXECUTE() for V6.1 or later  W. Landsman Jan 2007 
+;       Assume since V6.1  W. Landsman June 2009
+;       Change arrays to LONG to support entries >32767 bytes WL Oct 2010
 ;-
 ;
+ compile_opt idl2
 ;*****************************************************************
 ;
 COMMON db_com,qdb,qitems,qdbrec
 nitems=n_elements(sbyte)                                ;number of items
 external = db_info('external')                          ;External format?
-bswap = external * (not IS_IEEE_BIG() )              ;Need to byteswap?
+bswap = external * (~IS_IEEE_BIG() )              ;Need to byteswap?
 if dbno ge 0 then bswap = bswap[dbno] + bytarr(nitems) else $
         if n_elements(item_dbno) eq nitems then bswap=bswap[item_dbno] $
         else begin
@@ -87,7 +89,7 @@ big=bytarr(totbytes,nlist)
 ;
 ; generate vector of bytes in entries to extract
 ;
-index=intarr(totbytes)
+index=lonarr(totbytes)
 ipos=0
 for i=0,nitems-1 do begin
      for j=0,nbytes[i]-1 do index[ipos+j]=sbyte[i]+j
@@ -96,7 +98,7 @@ endfor
 ;
 ; generate vector of byte positions in big for each item
 ;
-bpos=intarr(nitems)
+bpos=lonarr(nitems)
 if nitems gt 1 then for i=1,nitems-1 do bpos[i]=bpos[i-1]+nbytes[i-1]
 ;
 ; loop on records and extract info into big
@@ -139,23 +141,11 @@ last = bpos + nbytes -1
 for i = 0,nitems-1 do begin
     item = dbxval(big, idltype[i], nval[i], bpos[i], nbytes[i], bswap=bswap[i])
     st = 'v' + strtrim(i+1,2)
-    if !VERSION.RELEASE GE '6.1' then begin
     if nlist GT 1 then $
        (SCOPE_VARFETCH(st)) = reform(item,/overwrite) else $
        (SCOPE_VARFETCH(st)) = [item]
 
-     endif else begin   
-    
-    if nlist GT 1 then $
-             st = st + '= reform(item, /overwrite)'  else $
-             st = st + '= [item]'
-
-;
-; copy v to correct output vector
-;
-        status = execute(st)
-    endelse                 
- endfor;for i loop on items
+  endfor;for i loop on items
 ;
 if scalar then list=savelist    ;restore scalar value
 return

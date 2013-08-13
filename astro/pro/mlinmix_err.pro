@@ -5,7 +5,6 @@
 ;   PURPOSE:
 ;      Bayesian approach to multiple linear regression with errors in  X and Y
 ;   EXPLANATION:
-
 ; PERFORM LINEAR REGRESSION OF Y ON X WHEN THERE ARE MEASUREMENT
 ; ERRORS IN BOTH VARIABLES. THE REGRESSION ASSUMES :
 ;
@@ -22,7 +21,7 @@
 ; XVAR^2 FOR X, VARIANCES YSIG^2 FOR Y, AND COVARIANCE VECTORS
 ; XYCOV. THE DISTRIBUTION OF XI IS MODELLED AS A MIXTURE OF NORMALS,
 ; WITH GROUP PROPORTIONS PI, MEANS MU, AND COVARIANCES T. BAYESIAN
-; INFERENCE IF EMPLOYED, AND A STRUCTURE CONTAINING RANDOM DRAWS FROM
+; INFERENCE IS EMPLOYED, AND A STRUCTURE CONTAINING RANDOM DRAWS FROM
 ; THE POSTERIOR IS RETURNED. CONVERGENCE OF THE MCMC TO THE POSTERIOR
 ; IS MONITORED USING THE POTENTIAL SCALE REDUCTION FACTOR (RHAT,
 ; GELMAN ET AL.2004). IN GENERAL, WHEN RHAT < 1.1 THEN APPROXIMATE
@@ -76,6 +75,30 @@
 ;           SAMPLER. EACH ELEMENT OF POST IS A DRAW FROM THE POSTERIOR
 ;           DISTRIBUTION FOR EACH OF THE PARAMETERS.
 ;
+;             ALPHA - THE CONSTANT IN THE REGRESSION.
+;             BETA - THE SLOPES OF THE REGRESSION.
+;             SIGSQR - THE VARIANCE OF THE INTRINSIC SCATTER.
+;             PI - THE GAUSSIAN WEIGHTS FOR THE MIXTURE MODEL.
+;             MU - THE GAUSSIAN MEANS FOR THE MIXTURE MODEL.
+;             T - THE GAUSSIAN COVARIANCE MATRICES FOR THE MIXTURE
+;                 MODEL.
+;             MU0 - THE HYPERPARAMETER GIVING THE MEAN VALUE OF THE
+;                   GAUSSIAN PRIOR ON MU.
+;             U - THE HYPERPARAMETER DESCRIBING FOR THE PRIOR
+;                 COVARIANCE MATRIX OF THE INDIVIDUAL GAUSSIAN
+;                 CENTROIDS ABOUT MU0.
+;             W - THE HYPERPARAMETER DESCRIBING THE `TYPICAL' SCALE
+;                 MATRIX FOR THE PRIOR ON (T,U).
+;             XIMEAN - THE MEAN OF THE DISTRIBUTION FOR THE
+;                      INDEPENDENT VARIABLE, XI.
+;             XIVAR - THE STANDARD COVARIANCE MATRIX FOR THE
+;                     DISTRIBUTION OF THE INDEPENDENT VARIABLE, XI.
+;             XICORR - SAME AS XIVAR, BUT FOR THE CORRELATION MATRIX.
+;             CORR - THE LINEAR CORRELATION COEFFICIENT BETWEEN THE
+;                    DEPENDENT AND INDIVIDUAL INDEPENDENT VARIABLES,
+;                    XI AND ETA.
+;             PCORR - SAME AS CORR, BUT FOR THE PARTIAL CORRELATIONS.
+;
 ; CALLED ROUTINES :
 ;
 ;    RANDOMCHI, MRANDOMN, RANDOMWISH, RANDOMDIR, MULTINOM
@@ -84,9 +107,10 @@
 ;
 ;   Carroll, R.J., Roeder, K., & Wasserman, L., 1999, Flexible
 ;     Parametric Measurement Error Models, Biometrics, 55, 44
-
-;   Kelly, B.C., & Others, 2006, Some Aspects of Measurement Error in
-;     Linear Regression of Astronomical Data, ApJ, in press
+;
+;   Kelly, B.C., 2007, Some Aspects of Measurement Error in
+;     Linear Regression of Astronomical Data, ApJ, In press
+;     (astro-ph/0705.2774)
 ;
 ;   Gelman, A., Carlin, J.B., Stern, H.S., & Rubin, D.B., 2004,
 ;     Bayesian Data Analysis, Chapman & Hall/CRC
@@ -389,7 +413,7 @@ for i = 0, nchains - 1 do eta[*,i] = y
 nut = np ;degrees of freedom for the prior on T
 nuu = np ;degrees of freedom for the prior on U
 
-npar = 2 + np ;number of parameters to moniter convergence on
+npar = 2 + np ;number of parameters to monitor convergence on
 
 convergence = 0
                                 ;start Markov Chains

@@ -13,9 +13,7 @@ PRO JULDATE, DATE, JD, PROMPT = prompt
 ;     This procedure duplicates the functionality of the JULDAY() function in
 ;     in the standard IDL distribution, but also allows interactive input and
 ;     gives output as Reduced Julian date (=JD - 2400000.)  
-;     (Also note that prior to V5.1 there was a bug in JULDAY() that gave 
-;     answers offset by 0.5 days.)
-;
+
 ; CALLING SEQUENCE:
 ;     JULDATE, /PROMPT           ;Prompt for calendar Date, print Julian Date
 ;               or
@@ -64,7 +62,7 @@ PRO JULDATE, DATE, JD, PROMPT = prompt
 ;-
  On_error,2 
 
- if ( N_params() EQ 0 ) and (not keyword_set( PROMPT ) ) then begin
+ if ( N_params() EQ 0 ) and ( ~keyword_set( PROMPT ) ) then begin
      print,'Syntax - JULDATE, date, jd          or JULDATE, /PROMPT'
      print, $
      '  date - 3-6 element vector containing [year,month,day,hour,minute,sec]'
@@ -91,7 +89,7 @@ PRO JULDATE, DATE, JD, PROMPT = prompt
   endcase   
 
  iy = floor( date[0] ) 
- if iy lt 0 then iy = iy +1  else $
+ if iy lt 0 then iy++  else $
     if iy EQ 0 then message,'ERROR - There is no year 0'                   
  im = fix( date[1] )
  date = double(date)
@@ -99,7 +97,7 @@ PRO JULDATE, DATE, JD, PROMPT = prompt
 ;
  if ( im LT 3 ) then begin   ;If month is Jan or Feb, don't include leap day
 
-     iy= iy-1 & im = im+12 
+     iy-- & im = im+12 
 
  end
 
@@ -112,7 +110,7 @@ PRO JULDATE, DATE, JD, PROMPT = prompt
 ;Gregorian Calendar starts on Oct. 15, 1582 (= RJD -100830.5)
  if jd GT -100830.5 then jd = jd + 2 - a + floor(a/4)
 
- if N_params() LT 2 or keyword_set( PROMPT) then begin      
+ if N_params() LT 2 || keyword_set( PROMPT) then begin      
     yr = fix( date[0] )
     print, FORM='(A,I4,A,I3,A,F9.5)',$ 
        ' Year ',yr,'    Month', fix(date[1] ),'    Day', day 

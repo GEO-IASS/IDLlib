@@ -9,22 +9,23 @@ pro cosmo_param,Omega_m, Omega_Lambda, Omega_k, q0
 ;     in defining any two of four cosmological density parameters.
 ;
 ;     Given any two of the four input parameters -- (1) the normalized matter 
-;     density Omega_m (2) the normalized cosmolgical constant, Omega_lambda (2) the normalized 
-;     curvature term, Omega_k and (4) the deceleration parameter q0 --  this 
-;     program will derive the remaining two.     Here "normalized" means divided by the closure
-;     density so that Omega_m + Omega_lambda + Omega_k = 1.    For a more
-;     precise definition see Caroll, Press, & Turner (1992, ArAA, 30, 499).     
+;     density Omega_m (2) the normalized cosmological constant, Omega_lambda 
+;     (3) the normalized curvature term, Omega_k and (4) the deceleration 
+;     parameter q0 --  this  program will derive the remaining two.     Here 
+;     "normalized" means divided by the closure density so that 
+;     Omega_m + Omega_lambda + Omega_k = 1.    For a more
+;     precise definition see Carroll, Press, & Turner (1992, ArAA, 30, 499).     
 ;
 ;     If less than two parameters are defined, this procedure sets default 
 ;     values of Omega_k=0 (flat space), Omega_lambda = 0.7, Omega_m = 0.3
-;     and q0 = -0.5
+;     and q0 = -0.55
 ; CALLING SEQUENCE:
 ;       COSMO_PARAM, Omega_m, Omega_lambda, Omega_k, q0
 ;
 ; INPUT-OUTPUTS:
 ;     Omega_M - normalized matter energy density, non-negative numeric scalar
 ;     Omega_Lambda - Normalized cosmological constant, numeric scalar
-;     Omega_k - normalized curvature parmeter, numeric scalar.   This is zero
+;     Omega_k - normalized curvature parameter, numeric scalar.   This is zero
 ;               for a flat universe
 ;     q0 - Deceleration parameter, numeric scalar = -R*(R'')/(R')^2
 ;          = 0.5*Omega_m - Omega_lambda
@@ -41,8 +42,12 @@ pro cosmo_param,Omega_m, Omega_Lambda, Omega_k, q0
 ;       which will return omega_lambda = 0.2 and q0 = -2.45
 ; REVISION HISTORY:
 ;       W. Landsman         Raytheon ITSS         April 2000
+;       Better Error checking  W. Landsman/D. Syphers   October 2010
 ;-
 
+ On_error,2
+ compile_opt idl2
+ 
  if N_params() LT 3 then begin
       print,'Syntax - COSMO_PARAM, Omega_m, Omega_lambda, Omega_k, q0'
       return
@@ -53,29 +58,37 @@ pro cosmo_param,Omega_m, Omega_Lambda, Omega_k, q0
  Nomega = N_elements(Omega_m) < 1
  Nq0 = N_elements(q0) < 1
 
+; Use must specify 0 or 2 parameters
+
+ if total(Nk + Nlambda + Nomega + Nq0,/int) EQ 1 then $
+     message,'ERROR - At least 2 cosmological parameters must be specified'
+     
 ; Check which two parameters are defined, and then determine the other two
 
  if (Nomega and Nlambda) then begin 
        if Nk EQ 0 then Omega_k = 1 - omega_m - Omega_lambda 
        if Nq0 EQ 0 then q0 = omega_m/2. - Omega_lambda
- endif
+ endif else $
 
  if (Nomega and Nk) then begin 
         if Nlambda EQ 0 then Omega_lambda = 1. -omega_m - Omega_k
         if Nq0 EQ 0 then q0 = -1 + Omega_k + 3*Omega_m/2
- endif
+ endif else $
+
  if (Nlambda and Nk) then begin 
          if Nomega EQ 0 then omega_m = 1.-Omega_lambda - Omega_k
          if Nq0 EQ 0 then q0 = (1 - Omega_k - 3.*Omega_lambda)/2.
- endif
+ endif else $
+
  if (Nomega and Nq0) then begin
          if Nk EQ 0 then Omega_k = 1 + q0 - 3*omega_m/2. 
          if Nlambda EQ 0 then Omega_lambda  = 1. - omega_m - Omega_k
- endif
+ endif else $
+
  if (Nlambda and Nq0) then begin
          if Nk EQ 0 then Omega_k = 1 - 2*q0 - 3*Omega_lambda
          if Nomega EQ 0 then omega_m = 1.-Omega_lambda - Omega_k
- endif
+ endif else $
 
  if (Nk and Nq0) then begin
          if Nomega EQ 0 then omega_m = (1 + q0 - Omega_k)*2/3.

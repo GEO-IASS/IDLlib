@@ -39,7 +39,27 @@ pro xy2ad, x, y, astr, a, d
 ;             PV2 will have up to 21 elements for the ZPN projection, up to 3
 ;             for the SIN projection and no more than 2 for any other
 ;             projection
-;        .DISTORT - Optional substructure specifying distortion parameters
+;
+;     Fields added for version 2:
+;      .PV1 - Vector of projection parameters associated with longitude axis
+;      .AXES  - 2 element integer vector giving the FITS-convention axis 
+;               numbers associated with astrometry, in ascending order. 
+;               Default [1,2].
+;      .REVERSE - byte, true if first astrometry axis is Dec/latitude
+;      .COORDSYS - 1 or 2 character code giving coordinate system, including
+;                 'C' = RA/Dec, 'G' = Galactic, 'E' = Ecliptic, 'X' = unknown.
+;      .RADECSYS - String giving RA/Dec system e.g. 'FK4', 'ICRS' etc.
+;      .EQUINOX  - Double giving the epoch of the mean equator and equinox
+;      .DATEOBS  - Text string giving (start) date/time of observations
+;      .MJDOBS   - Modified julian date of start of observations.
+;      .X0Y0     - Implied offset in intermediate world coordinates if user has
+;                  specified a non-standard fiducial point via PV1 and also
+;                  has set PV1_0a =/ 0 to indicate that the offset should be
+;                  applied in order to place CRVAL at the IWC origin.
+;                  Should be *added* to the IWC derived from application of
+;                  CRPIX, CDELT, CD to the pixel coordinates.
+;
+;      .DISTORT - Optional substructure specifying distortion parameters
 ;                  
 ;
 ; OUTPUT:
@@ -53,7 +73,7 @@ pro xy2ad, x, y, astr, a, d
 ;       beginning at (0,0).   No parameter checking is performed.
 ;
 ; NOTES:
-;      AD2XY tests for presence of WCS coordinates by the presence of a dash 
+;      XY2AD tests for presence of WCS coordinates by the presence of a dash 
 ;      in the 5th character position in the value of CTYPE (e.g 'DEC--SIN').       
 ; PROCEDURES USED:
 ;       TAG_EXIST(), WCSXY2SPH
@@ -66,6 +86,9 @@ pro xy2ad, x, y, astr, a, d
 ;       No special case for tangent projection W. Landsman June 2003
 ;       Work for non-WCS coordinate transformations W. Landsman Oct 2004
 ;       Use CRVAL reference point for non-WCS transformation  W.L. March 2007
+;       Use post V6.0 notation   W.L. July 2009
+;       Some optimisation for large input arrays & use of version 2 astr
+;       structure, J. P. Leahy July 2013
 ;       
 ;- 
  compile_opt idl2
@@ -73,14 +96,13 @@ pro xy2ad, x, y, astr, a, d
         print,'Syntax -- XY2AD, x, y, astr, a, d'
         return
  endif
- radeg = 180.0d/!DPI                  ;Double precision !RADEG
-
+ 
  cd = astr.cd
  crpix = astr.crpix
  cdelt = astr.cdelt
  if cdelt[0] NE 1.0 then begin 
-         cd[0,0] = cd[0,0]*cdelt[0] & cd[0,1] = cd[0,1]*cdelt[0]
-         cd[1,1] = cd[1,1]*cdelt[1] & cd[1,0] = cd[1,0]*cdelt[1]
+         cd[0,0] *= cdelt[0] & cd[0,1] *= cdelt[0]
+         cd[1,1] *= cdelt[1] & cd[1,0] *= cdelt[1]
   endif
 
 
@@ -98,37 +120,47 @@ pro xy2ad, x, y, astr, a, d
            
            for i=0,na-1 do begin
                for j=0,na-1 do begin
-                  if a[i,j] NE 0.0 then xdif1 = xdif1 + xdif^i*ydif^j*a[i,j]            
-                  if b[i,j] NE 0.0 then ydif1 = ydif1 + xdif^i*ydif^j*b[i,j]
+                  if a[i,j] NE 0.0 then xdif1 +=  xdif^i*ydif^j*a[i,j]            
+                  if b[i,j] NE 0.0 then ydif1 +=  xdif^i*ydif^j*b[i,j]
            endfor
            endfor
 
-           xdif = xdif1
-           ydif = ydif1
+           xdif = TEMPORARY(xdif1)
+           ydif = TEMPORARY(ydif1)
            
       endif
  endif
 
+ astr2 = TAG_EXIST(astr,'AXES') ; version 2 astrometry structure
+ 
  xsi = cd[0,0]*xdif + cd[0,1]*ydif   ;Can't use matrix notation, in
- eta = cd[1,0]*xdif + cd[1,1]*ydif   ;case X and Y are vectors
+                                     ;case X and Y are vectors
+ eta = cd[1,0]*TEMPORARY(xdif) + cd[1,1]*TEMPORARY(ydif)   
+
 
  ctype = astr.ctype
  crval = astr.crval
- coord = strmid(ctype,0,4)
- reverse = ((coord[0] EQ 'DEC-') and (coord[1] EQ 'RA--')) or $
-           ((coord[0] EQ 'GLAT') and (coord[1] EQ 'GLON')) or $
-           ((coord[0] EQ 'ELAT') and (coord[1] EQ 'ELON'))
-
+ IF astr2 THEN reverse = astr.reverse ELSE BEGIN
+     coord = strmid(ctype,0,4)
+     reverse = ((coord[0] EQ 'DEC-') && (coord[1] EQ 'RA--')) || $
+               ((coord[0] EQ 'GLAT') && (coord[1] EQ 'GLON')) || $
+               ((coord[0] EQ 'ELAT') && (coord[1] EQ 'ELON'))
+ ENDELSE
  if reverse then begin
      crval = rotate(crval,2)
-     temp = xsi & xsi = eta & eta = temp
+     temp = TEMPORARY(xsi) & xsi = TEMPORARY(eta) & eta = TEMPORARY(temp)
  endif
 
  if strmid(ctype[0],4,1) EQ '-' then begin
- WCSXY2SPH, xsi, eta, a, d, CTYPE = ctype[0:1], PV2 = astr.pv2, $
-        LONGPOLE = astr.longpole, CRVAL = crval, LATPOLE = astr.latpole
+     if astr2 THEN $
+         WCSXY2SPH, xsi, eta, a, d, CTYPE = ctype[0:1], PV1 = astr.pv1, $
+              PV2 = astr.PV2, CRVAL = crval, CRXY = astr.x0y0 $
+     ELSE $ 
+         WCSXY2SPH, xsi, eta, a, d, CTYPE = ctype[0:1], PV2 = astr.pv2, $
+              LONGPOLE = astr.longpole, CRVAL = crval, LATPOLE = astr.latpole
  endif else begin
-         a = crval[0] +xsi & d = crval[1] + eta	
+         a = crval[0] + TEMPORARY(xsi) & d = crval[1] + TEMPORARY(eta)	
  endelse
+
  return
  end
